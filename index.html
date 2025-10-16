@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AR Química — Ranking</title>
+<style>
+  :root{--bg:#0b1020;--bg2:#0e1530;--ink:#E6ECFF;--muted:#A9B7FF;--card:#0f183a;--card2:#121f49;--line:#2e3a75;--accent:#7AE7FF;--accent2:#9D84FF;}
+  *{box-sizing:border-box} html,body{height:100%}
+  body{
+    margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;color:var(--ink);
+    background:
+      radial-gradient(80rem 40rem at -10% -10%,#1a245f55,transparent 60%),
+      radial-gradient(80rem 40rem at 110% 10%,#5320a84a,transparent 60%),
+      linear-gradient(180deg,var(--bg),var(--bg2));
+    min-height:100vh;display:flex;flex-direction:column;
+  }
+  .hidden{display:none !important;}
+  .container{max-width:1100px;margin:0 auto;padding:22px 22px 120px;width:100%;flex:1;display:flex;flex-direction:column;min-height:0}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0 14px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{width:42px;height:42px;border-radius:12px;background:conic-gradient(from 0deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2,#7AE7FF);box-shadow:0 6px 24px #0007}
+  .title{font-weight:800;font-size:clamp(18px,3.6vw,28px)}
+  .title .grad{-webkit-background-clip:text;background-clip:text;color:transparent;background:linear-gradient(90deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2)}
+  .cta{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{background:linear-gradient(90deg,#5BC0FF,#8C7CFF);color:white;border:none;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .btn.small{padding:8px 12px;font-weight:600}
+  .panel{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 12px 40px #0007;margin-bottom:22px}
+  .tag{display:inline-block;padding:6px 10px;border-radius:999px;background:#101842;border:1px solid var(--line);color:#A9B7FF;font-size:12px}
+  .tablewrap{max-height:60vh;overflow:auto}
+  table{width:100%;border-collapse:separate;border-spacing:0 10px}
+  thead th{font-size:12px;color:#cbd6ff;font-weight:600;text-align:left;padding:0 10px}
+  tbody tr{background:#101a44;border:1px solid var(--line)}
+  tbody td{padding:12px 10px}
+  tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
+  tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
+  .rank{width:78px;text-align:left;font-weight:800}
+  .name{font-weight:700}.score{font-weight:800}
+  .input{background:#0f1941;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none;min-width:200px}
+  .lb-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f183f;border:1px solid var(--line);color:#d8e4ff;padding:10px 14px;border-radius:12px;box-shadow:0 10px 30px #0006;opacity:0;pointer-events:none}
+  .toast.show{animation:toast 2.2s ease forwards}
+  @keyframes toast{0%{opacity:0;transform:translateX(-50%) translateY(10px)}15%,85%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
+  .hint{font-size:12px;color:#b6c4ff}
+
+  /* Docentes (tus estilos, intactos) */
+  .overlay{position:fixed;inset:0;background:#0009;display:none;align-items:center;justify-content:center;padding:16px;z-index:40}
+  .overlay.show{display:flex}
+  .modal{width:min(980px,100%);max-height:90vh;overflow:auto}
+  .pill{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#0f1941;font-weight:600;color:#cfe0ff}
+  .combo-tools{display:flex;gap:8px;align-items:center;margin:8px 0}
+  .combo-list{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px;background:#0f183f}
+  .combo-item{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px}
+  .combo-item:hover{background:#0f214f}
+  .dot{width:18px;height:18px;border-radius:50%}
+  .badge{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#0f183f;font-size:11px;color:#cfe0ff}
+  .tabs{display:flex;gap:8px;margin:10px 0 14px}
+  .tab{border:1px solid var(--line);background:#0f1941;color:#dce6ff;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}
+  .tab.active{background:linear-gradient(90deg,#5BC0FF22,#8C7CFF22);border-color:#6d79ff}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .cardLine{border:1px solid var(--line);border-radius:10px;padding:10px;background:#0f183f;display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+  /* “Ver más” centrado dentro del panel de ranking */
+  .loadmore{display:flex;justify-content:center;margin-top:12px}
+  .btn.more{background:transparent;border:1px solid var(--line);color:#dce6ff}
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand"><div class="logo"></div><div class="title">AR <span class="grad">Química</span></div></div>
+      <div class="cta">
+        <a class="btn" id="linkApp" href="#" download>Descargar App</a>
+        <a class="btn ghost" id="linkPDF" href="#" download>Tarjetas (PDF)</a>
+        <button class="btn ghost" id="btnDocentes">Docentes</button>
+      </div>
+    </header>
+
+    <!-- Desafíos activos -->
+    <section class="panel" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div><span class="tag">Desafíos activos</span><h2 style="margin:8px 0 0">¡Completa combinaciones a tiempo!</h2></div>
+        <div class="hint">Se actualizan en vivo · Cuenta regresiva por desafío</div>
+      </div>
+      <div id="activeChallenges" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:10px"></div>
+    </section>
+
+    <!-- Ranking -->
+    <section class="panel">
+      <div class="lb-head">
+        <div>
+          <div class="tag">Ranking de puntajes</div>
+          <h2 style="margin:8px 0 0">Tabla de posiciones</h2>
+          <div id="rankStatus" class="hint">Cargando…</div>
+        </div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Estudiante</th><th>Puntaje</th></tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div id="loadMoreWrap" class="loadmore hidden">
+        <button id="btnMore" class="btn more">Ver más (+50)</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- MODAL DOCENTES (sin cambios) -->
+  <div class="overlay" id="ovl">
+    <div class="panel modal">
+      <div class="row">
+        <div><span class="pill">Docentes</span> <strong style="margin-left:6px">Panel</strong></div>
+        <button class="btn small ghost" id="closeOvl">Cerrar</button>
+      </div>
+
+      <div id="lockRow" class="row" style="gap:8px;margin:12px 0">
+        <input id="pin" class="input" style="min-width:140px" placeholder="PIN docente" type="password" />
+        <button id="btnUnlock" class="btn small">Desbloquear</button>
+      </div>
+
+      <div id="adminBox" class="hidden">
+        <div class="tabs">
+          <button class="tab active" id="tabCreate">Creador</button>
+          <button class="tab" id="tabResults">Resultados</button>
+        </div>
+
+        <div id="creatorSection">
+          <div class="panel" style="margin:0">
+            <div class="tools" style="flex-wrap:wrap">
+              <input id="dName" class="input" placeholder="Nombre del desafío (p. ej.: Reto 1: Óxidos)" style="flex:1 1 260px" />
+              <label class="input" style="display:flex;gap:8px;align-items:center;width:220px">
+                <span style="white-space:nowrap">Puntos por combinación</span>
+                <input id="pts" type="number" min="1" value="100" style="width:80px;background:transparent;border:none;color:var(--ink);outline:none"/>
+              </label>
+              <label class="input" style="display:flex;gap:8px;align-items:center;width:200px">
+                <span style="white-space:nowrap">Cantidad a exigir</span>
+                <input id="count" type="number" min="1" value="5" style="width:70px;background:transparent;border:none;color:var(--ink);outline:none"/>
+              </label>
+              <select id="dur" class="input" style="width:200px">
+                <option value="1h">1 hora</option><option value="3h">3 horas</option><option value="24h">24 horas</option>
+                <option value="2d">2 días</option><option value="3d">3 días</option><option value="custom">Elegir fecha/hora…</option>
+              </select>
+              <input id="customUntil" class="input hidden" type="datetime-local" />
+            </div>
+
+            <div class="combo-tools">
+              <input id="comboSearch" class="input" placeholder="Buscar combinación (ej. agua, NaCl, óxido)..." style="flex:1 1 260px" />
+              <span class="hint">Resultados en vivo</span>
+            </div>
+
+            <p class="hint" style="margin:6px 0">Selecciona las combinaciones candidatas (de aquí se tomarán al azar según “Cantidad a exigir”).</p>
+            <div id="comboList" class="combo-list"></div>
+
+            <div class="tools" style="margin-top:12px">
+              <button id="btnAddChallenge" class="btn small">Publicar desafío</button>
+              <button id="btnDemo" class="btn small ghost">Cargar datos demo</button>
+              <button id="btnClearAll" class="btn small ghost">Vaciar ranking</button>
+            </div>
+
+            <h3 style="margin:10px 0 6px">Administrar desafíos publicados</h3>
+            <div id="challengeList" style="display:grid;grid-template-columns:1fr;gap:8px"></div>
+          </div>
+        </div>
+
+        <div id="resultsSection" class="hidden">
+          <div class="panel" style="margin:0">
+            <div class="row">
+              <h3 style="margin:0">Resultados de desafíos</h3>
+              <div class="hint">Selecciona un desafío para ver sus puntajes</div>
+            </div>
+            <div id="resultsIndex" style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px"></div>
+
+            <div id="resultDetail" class="hidden" style="margin-top:10px">
+              <button id="btnBackResults" class="btn small ghost" style="margin-bottom:8px">← Volver</button>
+              <div class="row" id="resultHeader"></div>
+              <div class="tablewrap" style="margin-top:8px;max-height:50vh">
+                <table>
+                  <thead><tr><th>#</th><th>Estudiante</th><th>Puntaje</th><th>Curso</th></tr></thead>
+                  <tbody id="tbodyResults"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /adminBox -->
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Hecho</div>
+
+  <!-- Socket.IO client -->
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.8.1/dist/socket.io.min.js" crossorigin="anonymous"></script>
+
+  <script>
+/* ====== Utiles ====== */
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const toast=m=>{const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200);};
+function escapeHtml(s){return (s??"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;");}
+
+/* ====== Desafíos (docentes) - ¡sin tocar! ====== */
+const LS_CHALLENGES='arq.challenges.v2', LS_RESULTS='arq.results.v1';
+const ADMIN_PIN='1234';
+const COMBOS=[{id:'H2O',code:'H₂O',name:'Agua',color:'#66CCFF'},{id:'NaCl',code:'NaCl',name:'Sal de mesa',color:'#FFFFFF'},{id:'CO2',code:'CO₂',name:'Dióxido de carbono',color:'#AAAAAA'},{id:'NH3',code:'NH₃',name:'Amoníaco',color:'#99FFFF'},{id:'H2O2',code:'H₂O₂',name:'Peróxido de hidrógeno',color:'#BFE9FF'},{id:'KCl',code:'KCl',name:'Cloruro de potasio',color:'#FFF7CC'},{id:'MgO',code:'MgO',name:'Óxido de magnesio',color:'#DDDDDD'},{id:'CaCO3',code:'CaCO₃',name:'Carbonato de calcio',color:'#F2F2F2'},{id:'CuO',code:'CuO',name:'Óxido de cobre',color:'#006600'},{id:'ZnS',code:'ZnS',name:'Sulfuro de zinc',color:'#99FF99'}];
+let challenges=load(LS_CHALLENGES,[]), results=load(LS_RESULTS,{});
+function load(k,def){try{return JSON.parse(localStorage.getItem(k))??def}catch{return def}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function humanUntil(ms){const s=Math.max(0,Math.floor((ms-Date.now())/1000));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;return h>0?`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`:`${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`}
+
+function renderActiveChallenges(){
+  const root=$('#activeChallenges'); root.innerHTML='';
+  const active=challenges.filter(c=>c.expiresAt>Date.now());
+  if(!active.length){root.innerHTML='<div class="hint">No hay desafíos activos por ahora.</div>'; return;}
+  active.forEach(c=>{
+    const combo=COMBOS.find(x=>x.id===c.comboId);
+    const el=document.createElement('div');
+    el.style.cssText='border:1px solid #2e3a75;border-radius:12px;padding:12px;background:linear-gradient(180deg,#0f183a,#121f49);';
+    el.innerHTML=`
+      <div class="row" style="margin-bottom:6px">
+        <div style="font-weight:800">${combo?.code||c.comboId}</div>
+        <span class="badge">+${c.points} pts</span>
+      </div>
+      <div style="font-size:13px;color:#cfe0ff;margin-bottom:6px">${c.title||combo?.name||'Combinación'}</div>
+      <div class="row">
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="dot" style="background:${combo?.color||'#7AE7FF'}"></div>
+          <small>${combo?.name||'-'}</small>
+        </div>
+        <div class="badge" data-countdown="${c.id}">--:--</div>
+      </div>`;
+    root.appendChild(el);
+  });
+}
+function tick(){
+  $$('#activeChallenges [data-countdown]').forEach(el=>{
+    const c=challenges.find(x=>x.id===el.dataset.countdown); if(!c)return;
+    if(c.expiresAt<=Date.now()){renderActiveChallenges(); renderChallengeList(); renderResultsIndex(); save(LS_CHALLENGES,challenges);}
+    else el.textContent=humanUntil(c.expiresAt);
+  });
+}
+setInterval(tick,1000);
+
+function renderChallengeList(){
+  const box=$('#challengeList'); if(!box) return;
+  if(!challenges.length){box.innerHTML='<div class="hint">Aún no hay desafíos creados.</div>'; return;}
+  box.innerHTML=challenges.sort((a,b)=>a.expiresAt-b.expiresAt).map(c=>{
+    const combo=COMBOS.find(x=>x.id===c.comboId);
+    const state=c.expiresAt>Date.now()?'Activo':'Vencido';
+    return `<div class="cardLine">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="dot" style="background:${combo?.color||'#7AE7FF'}"></div>
+        <div>
+          <div style="font-weight:800">${c.title?`${c.title} · `:''}${combo?.code||c.comboId}</div>
+          <div class="hint">${state} · Exp: ${new Date(c.expiresAt).toLocaleString()} · +${c.points} pts</div>
+        </div>
+      </div>
+      <div class="tools">
+        <button class="btn small" data-view="${c.id}">Ver resultados</button>
+        <button class="btn small ghost" data-del="${c.id}">Eliminar</button>
+      </div>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.del; challenges=challenges.filter(x=>x.id!==id); delete results[id];
+    save(LS_CHALLENGES,challenges); save(LS_RESULTS,results);
+    renderChallengeList(); renderActiveChallenges(); renderResultsIndex(); toast('Desafío eliminado');
+  });
+  box.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>openResultsDetail(b.dataset.view));
+}
+function openAdminTab(which){
+  $('#tabCreate').classList.toggle('active', which==='create');
+  $('#tabResults').classList.toggle('active', which==='results');
+  $('#creatorSection').classList.toggle('hidden', which!=='create');
+  $('#resultsSection').classList.toggle('hidden', which!=='results');
+  if(which==='results') renderResultsIndex();
+}
+function renderResultsIndex(){
+  const wrap=$('#resultsIndex'); if(!wrap) return;
+  $('#resultDetail').classList.add('hidden'); wrap.classList.remove('hidden');
+  if(!challenges.length){wrap.innerHTML='<div class="hint">No hay desafíos creados.</div>'; return;}
+  wrap.innerHTML=challenges.slice().sort((a,b)=>b.expiresAt-a.expiresAt).map(c=>{
+    const combo=COMBOS.find(x=>x.id===c.comboId);
+    const arr=(results[c.id]||[]).slice().sort((a,b)=>b.score-a.score);
+    const best=arr[0]?.score ?? 0;
+    const state=c.expiresAt>Date.now()?'Activo':'Vencido';
+    return `<div class="cardLine">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="dot" style="background:${combo?.color||'#7AE7FF'}"></div>
+        <div>
+          <div style="font-weight:800">${c.title||combo?.name||'Desafío'} · ${combo?.code||c.comboId}</div>
+          <div class="hint">${state} · Exp: ${new Date(c.expiresAt).toLocaleString()} · Mejor puntaje: ${best}</div>
+        </div>
+      </div>
+      <button class="btn small" data-open="${c.id}">Abrir</button>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openResultsDetail(b.dataset.open));
+}
+function openResultsDetail(chId){
+  const c=challenges.find(x=>x.id===chId); if(!c) return;
+  const combo=COMBOS.find(x=>x.id===c.comboId);
+  const arr=(results[chId]||[]).slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
+  $('#resultsIndex').classList.add('hidden'); $('#resultDetail').classList.remove('hidden');
+  $('#resultHeader').innerHTML=`<div class="row" style="gap:10px">
+    <div class="dot" style="background:${combo?.color||'#7AE7FF'}"></div>
+    <div><div style="font-weight:800">${c.title||combo?.name||'Desafío'} · ${combo?.code||c.comboId}</div>
+    <div class="hint">Expira: ${new Date(c.expiresAt).toLocaleString()} · +${c.points} pts · ${arr.length} resultado(s)</div></div></div>`;
+  const tb=$('#tbodyResults'); tb.innerHTML='';
+  arr.forEach((r,i)=>{
+    const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="rank">${medal}${i+1}</td><td class="name">${r.name}</td><td class="score">${r.score}</td><td>${r.class||'-'}</td>`;
+    tb.appendChild(tr);
+  });
+  $('#btnBackResults').onclick=()=>{ $('#resultDetail').classList.add('hidden'); $('#resultsIndex').classList.remove('hidden'); };
+}
+function renderComboList(){
+  const wrap=$('#comboList'); if(!wrap) return;
+  const term=($('#comboSearch')?.value||'').trim().toLowerCase();
+  const list=COMBOS.filter(c=>!term || c.id.toLowerCase().includes(term) || c.code.toLowerCase().includes(term) || c.name.toLowerCase().includes(term));
+  wrap.innerHTML=list.map(c=>`
+    <label class="combo-item"><input type="checkbox" value="${c.id}"/>
+      <span class="dot" style="background:${c.color}"></span>
+      <span><strong>${c.code}</strong> — ${c.name}</span>
+    </label>`).join('') || `<div class="hint">Sin resultados para “${term}”.</div>`;
+}
+function parseUntil(v){const now=Date.now(); if(v==='2d')return now+2*24*60*60*1000; if(v==='3d')return now+3*24*60*60*1000; if(v.endsWith('m'))return now+Number(v.replace('m',''))*60*1000; if(v.endsWith('h'))return now+Number(v.replace('h',''))*60*60*1000; return now+60*60*1000;}
+function randPick(arr,n){const a=[...arr],o=[];while(a.length&&o.length<n){o.push(a.splice(Math.random()*a.length|0,1)[0]);}return o;}
+function publishChallenge(){
+  const title=$('#dName').value.trim();
+  const points=Math.max(1,Number($('#pts').value||100));
+  const count=Math.max(1,Number($('#count').value||1));
+  let expiresAt; const dur=$('#dur').value;
+  if(dur==='custom'){const dt=$('#customUntil').value;if(!dt){toast('Elige fecha/hora');return;}expiresAt=new Date(dt).getTime();} else {expiresAt=parseUntil(dur);}
+  if(expiresAt<=Date.now()){toast('La expiración debe ser en el futuro');return;}
+  const checked=[...$('#comboList').querySelectorAll('input:checked')].map(i=>i.value);
+  if(!checked.length){toast('Selecciona al menos una combinación');return;}
+  const chosen=checked.length>count?randPick(checked,count):checked;
+  chosen.forEach(cid=>{const id=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());challenges.push({id,comboId:cid,points,expiresAt,title}); if(!results[id]) results[id]=[];});
+  save(LS_CHALLENGES,challenges); save(LS_RESULTS,results);
+  renderActiveChallenges(); renderChallengeList(); renderResultsIndex(); toast(`Desafío publicado (${chosen.length})`);
+}
+const ovl=$('#ovl');
+$('#btnDocentes').onclick=()=>{ ovl.classList.add('show'); $('#pin').value=''; $('#adminBox').classList.add('hidden'); };
+$('#closeOvl').onclick=()=>ovl.classList.remove('show');
+$('#btnUnlock').onclick=()=>{ const ok=(($('#pin').value)||'')===ADMIN_PIN;
+  $('#adminBox').classList.toggle('hidden',!ok);
+  if(ok){ toast('Modo docente activado'); renderChallengeList(); renderComboList(); renderResultsIndex(); openAdminTab('create'); }
+  else toast('PIN incorrecto');
+};
+$('#dur').addEventListener('change',()=>$('#customUntil').classList.toggle('hidden',$('#dur').value!=='custom'));
+$('#btnAddChallenge').addEventListener('click',publishChallenge);
+$('#btnDemo').addEventListener('click',()=>{ ensureDemoResults(); renderResultsIndex(); toast('Datos demo cargados'); });
+$('#btnClearAll').addEventListener('click',()=>{ if(confirm('¿Vaciar resultados locales de desafíos?')){ results={}; save(LS_RESULTS,results); renderResultsIndex(); toast('Resultados locales vaciados'); }});
+$('#comboSearch')?.addEventListener('input',renderComboList);
+$('#tabCreate').onclick=()=>openAdminTab('create');
+$('#tabResults').onclick=()=>openAdminTab('results');
+renderActiveChallenges(); renderChallengeList(); renderComboList(); renderResultsIndex();
+function ensureDemoResults(){
+  challenges.forEach(c=>{
+    if(!results[c.id] || !results[c.id].length){
+      const sample=[{name:'Ana López',score:920,class:'3°A'},{name:'Juan Pérez',score:880,class:'3°B'},{name:'María Díaz',score:860,class:'3°A'},{name:'Luis Soto',score:810,class:'3°C'}];
+      results[c.id]=sample.map(s=>({name:s.name,class:s.class,score:Math.max(10,Math.floor(s.score*0.3+Math.random()*c.points))}));
+    }
+  });
+  save(LS_RESULTS,results);
+}
+
+/* ====== Ranking conectado al backend ====== */
+const API_BASE="https://ar-back.onrender.com";
+const rankStatus=document.getElementById("rankStatus");
+const tbody=document.getElementById("tbody");
+const loadMoreWrap=document.getElementById("loadMoreWrap");
+const btnMore=document.getElementById("btnMore");
+let topRows=[];           // filas actuales
+let currentLimit=20;      // empieza en 20
+let socket=null;
+
+function setRankStatus(msg){ if(rankStatus) rankStatus.textContent=msg; }
+
+function renderRanking(){
+  const rows=[...topRows].sort((a,b)=>b.score-a.score || a.name.localeCompare(b.name));
+  tbody.innerHTML='';
+  rows.forEach((r,i)=>{
+    const medal=i===0?'🥇 ': i===1?'🥈 ': i===2?'🥉 ':'';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="rank">${medal}${i+1}</td><td class="name">${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`;
+    tbody.appendChild(tr);
+  });
+  // mostrar/ocultar “ver más”
+  loadMoreWrap.classList.toggle('hidden', rows.length < currentLimit);
+}
+
+async function fetchTopHTTP(n){
+  const res=await fetch(`${API_BASE}/scores/top?n=${n}`,{cache:"no-store",mode:"cors"});
+  if(!res.ok) throw new Error(res.status+" "+res.statusText);
+  return res.json();
+}
+
+function startLiveSocket(){
+  try{
+    socket && socket.disconnect();
+    socket=io(API_BASE,{transports:["websocket"],withCredentials:false});
+    socket.on("connect",()=>setRankStatus("Conectado en vivo ✅"));
+    socket.on("disconnect",()=>setRankStatus("Desconectado, reconectando…"));
+    const ask=()=>socket.emit("get_top", currentLimit);
+    socket.on("connect", ask);
+    socket.on("top", rows=>{ topRows=rows||[]; renderRanking(); });
+    socket.on("top_updated", rows=>{ topRows=rows||[]; renderRanking(); });
+  }catch(e){ console.error(e); }
+}
+
+btnMore?.addEventListener('click', async ()=>{
+  currentLimit += 50;
+  try{
+    topRows = await fetchTopHTTP(currentLimit);
+    renderRanking();
+    socket?.emit("get_top", currentLimit); // que el socket siga el nuevo límite
+  }catch(e){ console.warn(e); }
+});
+
+// Inicializa
+(async ()=>{
+  try{
+    setRankStatus("Cargando top…");
+    topRows = await fetchTopHTTP(currentLimit);
+    renderRanking();
+    setRankStatus("Conectando en vivo…");
+  }catch(e){
+    setRankStatus("No se pudo cargar: "+e.message);
+  }
+  startLiveSocket();
+})();
+  </script>
+</body>
+</html>
