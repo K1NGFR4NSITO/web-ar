@@ -18,10 +18,41 @@
   .hidden{display:none !important;}
   .container{max-width:1100px;margin:0 auto;padding:22px 22px 120px;width:100%;flex:1;display:flex;flex-direction:column;min-height:0}
   header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0 14px}
-  .brand{display:flex;align-items:center;gap:14px}
-  .logo{width:42px;height:42px;border-radius:12px;background:conic-gradient(from 0deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2,#7AE7FF);box-shadow:0 6px 24px #0007}
-  .title{font-weight:800;font-size:clamp(18px,3.6vw,28px)}
-  .title .grad{-webkit-background-clip:text;background-clip:text;color:transparent;background:linear-gradient(90deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2)}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:nowrap;         /* no dejes que salte de línea */
+  position:relative;
+}
+
+.logo{
+  width:42px; height:42px;
+  border-radius:12px;
+  background:conic-gradient(from 0deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2,#7AE7FF);
+  box-shadow:0 6px 24px #0007;
+  flex:0 0 42px;            /* fija el ancho del bloque de color */
+  position:relative;
+  z-index:1;                /* debajo del texto */
+}
+
+.title{
+  margin:0;
+  font-weight:800;
+  font-size:clamp(18px,3.6vw,28px);
+  line-height:1.1;
+  position:relative;
+  z-index:2;                /* por encima del bloque de color */
+  white-space:nowrap;       /* evita que “Química” salte de línea */
+}
+
+.title .grad{
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  background:linear-gradient(90deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2);
+}
+
   .cta{display:flex;gap:10px;flex-wrap:wrap}
   .btn{background:linear-gradient(90deg,#5BC0FF,#8C7CFF);color:white;border:none;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer}
   .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
