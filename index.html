@@ -48,13 +48,11 @@
   white-space:nowrap;       /* evita que “Química” salte de línea */
 }
 
-.title .grad{
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
-  background:linear-gradient(90deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2);
-  display:inline-block;
-    -webkit-text-fill-color: transparent;
+.title .grad {
+  color: #ffffff;              /* texto completamente blanco */
+  background: none;            /* sin fondo degradado */
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: initial;
 }
 
   .cta{display:flex;gap:10px;flex-wrap:wrap}
