@@ -82,7 +82,7 @@
       </div>
     </header>
 
-    <!-- Desafíos activos -->
+    <!-- Desafíos activos (local: portada) -->
     <section class="panel" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <div><span class="tag">Desafíos activos</span><h2 style="margin:8px 0 0">¡Completa combinaciones a tiempo!</h2></div>
@@ -91,7 +91,7 @@
       <div id="activeChallenges" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:10px"></div>
     </section>
 
-    <!-- Ranking -->
+    <!-- Ranking (NO TOCADO) -->
     <section class="panel">
       <div class="lb-head">
         <div>
@@ -181,9 +181,7 @@
             <!-- Detalle (abre al seleccionar) -->
             <div id="serverChallengeDetail" class="hidden" style="margin-top:12px">
               <button id="btnCloseDetail" class="btn small ghost" style="margin-bottom:8px">← Volver</button>
-              <div id="detailHeader" class="panel" style="margin:0 0 10px">
-                <!-- se llena dinámicamente -->
-              </div>
+              <div id="detailHeader" class="panel" style="margin:0 0 10px"></div>
               <div class="panel" style="margin:0">
                 <div class="row" style="margin-bottom:8px">
                   <h3 style="margin:0">Participantes de este desafío</h3>
@@ -201,6 +199,7 @@
           </div>
         </div>
 
+        <!-- Pestaña “Resultados” local (demo) -->
         <div id="resultsSection" class="hidden">
           <div class="panel" style="margin:0">
             <div class="row">
@@ -235,7 +234,6 @@
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
 const toast=m=>{const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200);};
 function escapeHtml(s){return (s??"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;");}
-function nowIso(){return new Date().toISOString();}
 function humanUntil(ms){const s=Math.max(0,Math.floor((ms-Date.now())/1000));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;return h>0?`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`:`${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`}
 
 /* ========= Local UI lists (para portada) ========= */
@@ -258,7 +256,7 @@ const COMBOS=[
   {id:'ZnS',code:'ZnS',name:'Sulfuro de zinc',color:'#99FF99'}
 ];
 
-/* UI → fusion_id en la BD (ajusta si difieren) */
+/* UI → fusion_id en la BD */
 const FUSION_ID_MAP = {
   H2O:'agua',
   NaCl:'sal_de_mesa',
@@ -274,17 +272,24 @@ const FUSION_ID_MAP = {
 
 /* ========= Endpoints ========= */
 const API_BASE="https://ar-back.onrender.com";
-/* Si tus rutas cambian, ajusta aquí: */
 const EP = {
-  listChallenges: `${API_BASE}/challenges`,                // GET
-  activeChallenges: `${API_BASE}/challenges/active`,       // GET (fallback)
-  createChallenge: `${API_BASE}/challenges`,               // POST
-  expireOthers:   `${API_BASE}/challenges/expire_others`,  // POST {keep_id}
-  deleteChallenge: id => `${API_BASE}/challenges/${id}`,    // DELETE
-  resultsByChallengePreferred: id => `${API_BASE}/challenges/${id}/results`,      // GET
-  resultsByChallengeAlt1:      id => `${API_BASE}/scores/by_challenge/${id}`,     // GET
-  resultsByChallengeAlt2:      id => `${API_BASE}/scores/by_challenge?challenge_id=${id}` // GET
+  listChallenges: `${API_BASE}/challenges`,
+  activeChallenges: `${API_BASE}/challenges/active`,
+  createChallenge: `${API_BASE}/challenges`,
+  expireOthers:   `${API_BASE}/challenges/expire_others`,
+  challengeById:  id => `${API_BASE}/challenges/${id}`,
+  deleteChallenge:id => `${API_BASE}/challenges/${id}`,
+  resultsPreferred: id => `${API_BASE}/challenges/${id}/results`,
+  resultsAlt1:       id => `${API_BASE}/scores/by_challenge/${id}`,
+  resultsAlt2:       id => `${API_BASE}/scores/by_challenge?challenge_id=${id}`
 };
+
+/* ===== Helpers de admin (evita 401) ===== */
+function adminHeaders(extra={}) {
+  // toma el PIN desde el input del modal
+  const pin = ($('#pin')?.value||'').trim();
+  return { 'Content-Type':'application/json', 'X-Admin-Pin': pin, ...extra };
+}
 
 /* ========= Portada: render de tarjetas locales ========= */
 function renderActiveChallenges(){
@@ -322,7 +327,7 @@ setInterval(tick,1000);
 
 /* ========= Admin: lista desde SERVIDOR ========= */
 $('#btnRefreshChallenges')?.addEventListener('click', loadServerChallenges);
-$('#btnCloseDetail')?.addEventListener('click', ()=>{$('#serverChallengeDetail').classList.add('hidden');});
+$('#btnCloseDetail')?.addEventListener('click', ()=>$('#serverChallengeDetail').classList.add('hidden'));
 
 async function httpJson(url, opt={}){
   const res = await fetch(url,{mode:'cors',cache:'no-store',...opt});
@@ -340,7 +345,7 @@ function parseUntilVal(v){
   return now+60*60*1000;
 }
 
-/* Publicar al backend (crea + expira otros) y refleja en UI de portada */
+/* Publicar al backend (usa PIN) */
 $('#btnAddChallenge')?.addEventListener('click', publishChallenge);
 async function publishChallenge(){
   try{
@@ -365,50 +370,42 @@ async function publishChallenge(){
     const fusion_ids = chosenUI.map(k=>FUSION_ID_MAP[k]).filter(Boolean);
     if(!fusion_ids.length){ toast('Las combinaciones no tienen mapeo en backend'); return; }
 
-    // Crear en servidor
+    // Crear en servidor con PIN
     const created = await httpJson(EP.createChallenge,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        name:title||'Desafío',
-        points_per_combo:points,
-        required_count:count,
-        expires_at,
-        fusion_ids
-      })
+      headers: adminHeaders(),
+      body:JSON.stringify({ name:title||'Desafío', points_per_combo:points, required_count:count, expires_at, fusion_ids })
     });
+
     const keepId = created?.id;
     if(($('#expireOthers')?.checked ?? true) && keepId){
-      try{ await httpJson(EP.expireOthers,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keep_id:keepId})}); }catch(e){ console.warn('expire_others fallback:',e); }
+      try{ await httpJson(EP.expireOthers,{method:'POST',headers:adminHeaders(),body:JSON.stringify({keep_id:keepId})}); }catch(e){ console.warn('expire_others:',e); }
     }
 
-    // Reflejo rápido en portada (una tarjeta)
+    // Reflejo rápido en portada
     const uiId = (crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
     challenges.push({id:uiId,comboId:chosenUI[0],points,expiresAt:expiresAtMs,title});
     save(LS_CHALLENGES,challenges);
     renderActiveChallenges();
 
-    // Refrescar “Administrar…”
     await loadServerChallenges();
     toast('Desafío publicado');
   }catch(e){ console.error(e); toast('Error publicando: '+e.message); }
 }
-
 function randPick(arr,n){const a=[...arr],o=[];while(a.length&&o.length<n){o.push(a.splice(Math.random()*a.length|0,1)[0]);}return o;}
 
+/* Cargar lista servidor */
 async function loadServerChallenges(){
   const box = $('#serverChallengeList');
   box.innerHTML = '<div class="hint">Cargando…</div>';
   try{
     let list = await httpJson(EP.listChallenges).catch(async()=>httpJson(EP.activeChallenges));
     if(!Array.isArray(list)) list = list? [list] : [];
-    // Filtrar activos por tiempo si el backend devuelve todos
     const now = new Date();
     list = list.filter(c => !c.expires_at || new Date(c.expires_at) > now);
 
     if(!list.length){ box.innerHTML = '<div class="hint">No hay desafíos activos en el servidor.</div>'; return; }
 
-    // Pintar tarjetas
     box.innerHTML = list.map(c=>{
       const combos = (c.fusion_ids||[]).map(fid=>`<span class="badge" title="${fid}">${fid}</span>`).join(' ');
       const exp = c.expires_at ? new Date(c.expires_at).toLocaleString() : '—';
@@ -425,29 +422,26 @@ async function loadServerChallenges(){
       </div>`;
     }).join('');
 
-    // Wire: abrir detalle
-    box.querySelectorAll('[data-open]').forEach(b=>{
-      b.onclick = ()=> openServerChallengeDetail(list.find(x=>String(x.id)===String(b.dataset.open)));
-    });
-    // Wire: eliminar
-    box.querySelectorAll('[data-del]').forEach(b=>{
-      b.onclick = ()=> deleteServerChallenge(b.dataset.del);
-    });
+    box.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=> openServerChallengeDetail(list.find(x=>String(x.id)===String(b.dataset.open))));
+    box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=> deleteServerChallenge(b.dataset.del));
   }catch(e){
     console.error(e);
     box.innerHTML = `<div class="hint">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
   }
 }
 
+/* Eliminar desafío (PIN) */
 async function deleteServerChallenge(id){
   if(!confirm('¿Eliminar este desafío?')) return;
   try{
-    await httpJson(EP.deleteChallenge(id),{method:'DELETE'});
+    await httpJson(EP.deleteChallenge(id),{method:'DELETE',headers:adminHeaders()});
     toast('Desafío eliminado');
     await loadServerChallenges();
+    $('#serverChallengeDetail').classList.add('hidden');
   }catch(e){ console.error(e); toast('No se pudo eliminar: '+e.message); }
 }
 
+/* Abrir detalle + participantes */
 async function openServerChallengeDetail(ch){
   if(!ch) return;
   const detail = $('#serverChallengeDetail');
@@ -455,7 +449,6 @@ async function openServerChallengeDetail(ch){
   const tbody = $('#tbodyChResults');
   detail.classList.remove('hidden');
 
-  // Header
   const exp = ch.expires_at ? new Date(ch.expires_at).toLocaleString() : '—';
   const combos = (ch.fusion_ids||[]).map(fid=>`<span class="badge" title="${fid}">${fid}</span>`).join(' ');
   head.innerHTML = `
@@ -470,31 +463,26 @@ async function openServerChallengeDetail(ch){
         </div>
       </div>
       <div>
-        <button class="btn small ghost" onclick="(async()=>{if(confirm('¿Eliminar este desafío?')){try{await fetch('${EP.deleteChallenge(ch.id)}',{method:'DELETE'});toast('Desafío eliminado');document.getElementById('serverChallengeDetail').classList.add('hidden');loadServerChallenges();}catch(e){toast('Error: '+e.message)}})()">Eliminar</button>
+        <button class="btn small ghost" onclick="deleteServerChallenge(${JSON.stringify(ch.id)})">Eliminar</button>
       </div>
-    </div>
-  `;
+    </div>`;
 
-  // Resultados
   tbody.innerHTML = '<tr><td colspan="4" class="hint">Cargando…</td></tr>';
   try{
     let rows;
-    try{ rows = await httpJson(EP.resultsByChallengePreferred(ch.id)); }
-    catch{ try{ rows = await httpJson(EP.resultsByChallengeAlt1(ch.id)); }
-    catch{ rows = await httpJson(EP.resultsByChallengeAlt2(ch.id)); } }
+    try{ rows = await httpJson(EP.resultsPreferred(ch.id)); }
+    catch{ try{ rows = await httpJson(EP.resultsAlt1(ch.id)); }
+    catch{ rows = await httpJson(EP.resultsAlt2(ch.id)); } }
 
     if(!Array.isArray(rows) || !rows.length){
       tbody.innerHTML = '<tr><td colspan="4" class="hint">Aún no hay respuestas para este desafío.</td></tr>';
       return;
     }
     rows = rows.sort((a,b)=>(b.score||0)-(a.score||0) || (a.name||'').localeCompare(b.name||''));
-    tbody.innerHTML = '';
-    rows.forEach((r,i)=>{
+    tbody.innerHTML = rows.map((r,i)=>{
       const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
-      const tr=document.createElement('tr');
-      tr.innerHTML = `<td class="rank">${medal}${i+1}</td><td class="name">${escapeHtml(r.name||'-')}</td><td class="score">${r.score??0}</td><td>${escapeHtml(r.class||r.course||'-')}</td>`;
-      tbody.appendChild(tr);
-    });
+      return `<tr><td class="rank">${medal}${i+1}</td><td class="name">${escapeHtml(r.name||'-')}</td><td class="score">${r.score??0}</td><td>${escapeHtml(r.class||r.course||'-')}</td></tr>`;
+    }).join('');
   }catch(e){
     console.error(e);
     tbody.innerHTML = `<tr><td colspan="4" class="hint">No se pudieron cargar los resultados: ${escapeHtml(e.message)}</td></tr>`;
@@ -556,7 +544,7 @@ function openResultsDetail(chId){
   $('#btnBackResults').onclick=()=>{ $('#resultDetail').classList.add('hidden'); $('#resultsIndex').classList.remove('hidden'); };
 }
 
-/* ========= Ranking live ========= */
+/* ========= Ranking live (NO TOCADO) ========= */
 const rankStatus=document.getElementById("rankStatus");
 const tbody=document.getElementById("tbody");
 const loadMoreWrap=document.getElementById("loadMoreWrap");
@@ -616,7 +604,6 @@ function resultsLocalInit(){ renderResultsIndex(); }
     setRankStatus("Conectando en vivo…");
   }catch(e){ setRankStatus("No se pudo cargar: "+e.message); }
   startLiveSocket();
-  // precargar lista de servidor
   loadServerChallenges();
 })();
 
