@@ -18,34 +18,10 @@
   .hidden{display:none !important;}
   .container{max-width:1100px;margin:0 auto;padding:22px 22px 120px;width:100%;flex:1;display:flex;flex-direction:column;min-height:0}
   header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0 14px}
-.brand{
-  display:flex;
-  align-items:center;
-  gap:14px;
-  flex-wrap:nowrap;
-  position:relative;
-}
-.logo{
-  width:42px; height:42px;
-  border-radius:12px;
-  background:conic-gradient(from 0deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2,#7AE7FF);
-  box-shadow:0 6px 24px #0007;
-  flex:0 0 42px;
-  position:relative;
-  z-index:1;
-  margin-right:10px;
-}
-.title{
-  margin:0;
-  font-weight:800;
-  font-size:clamp(18px,3.6vw,28px);
-  line-height:1.1;
-  position:relative;
-  z-index:2;
-  white-space:nowrap;
-}
-.title .grad { color:#fff; background:none; -webkit-background-clip:initial; -webkit-text-fill-color:initial; }
-
+  .brand{display:flex;align-items:center;gap:14px;position:relative}
+  .logo{width:42px;height:42px;border-radius:12px;background:conic-gradient(from 0deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2,#7AE7FF);box-shadow:0 6px 24px #0007;flex:0 0 42px;margin-right:10px}
+  .title{margin:0;font-weight:800;font-size:clamp(18px,3.6vw,28px);line-height:1.1;white-space:nowrap}
+  .title .grad{color:#fff}
   .cta{display:flex;gap:10px;flex-wrap:wrap}
   .btn{background:linear-gradient(90deg,#5BC0FF,#8C7CFF);color:white;border:none;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer}
   .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
@@ -86,6 +62,10 @@
   .cardLine{border:1px solid var(--line);border-radius:10px;padding:10px;background:#0f183f;display:flex;align-items:center;justify-content:space-between;gap:10px}
   .loadmore{display:flex;justify-content:center;margin-top:12px}
   .btn.more{background:transparent;border:1px solid var(--line);color:#dce6ff}
+
+  /* Detalle de desafío */
+  .kv{display:grid;grid-template-columns:140px 1fr;gap:6px;font-size:14px}
+  .kv b{color:#cfe0ff}
 </style>
 </head>
 <body>
@@ -170,7 +150,6 @@
                 <option value="2d">2 días</option><option value="3d">3 días</option><option value="custom">Elegir fecha/hora…</option>
               </select>
               <input id="customUntil" class="input hidden" type="datetime-local" />
-              <!-- NUEVO: Expirar otros -->
               <label class="input" style="display:flex;gap:8px;align-items:center;width:200px">
                 <input id="expireOthers" type="checkbox" checked />
                 <span style="white-space:nowrap">Expirar otros</span>
@@ -192,15 +171,41 @@
             </div>
 
             <h3 style="margin:10px 0 6px">Administrar desafíos publicados</h3>
-            <div id="challengeList" style="display:grid;grid-template-columns:1fr;gap:8px"></div>
+            <!-- Lista traída del backend -->
+            <div class="row" style="margin-bottom:8px">
+              <div class="hint">Se consultan del servidor</div>
+              <button id="btnRefreshChallenges" class="btn small ghost">Refrescar</button>
+            </div>
+            <div id="serverChallengeList" style="display:grid;grid-template-columns:1fr;gap:8px"></div>
+
+            <!-- Detalle (abre al seleccionar) -->
+            <div id="serverChallengeDetail" class="hidden" style="margin-top:12px">
+              <button id="btnCloseDetail" class="btn small ghost" style="margin-bottom:8px">← Volver</button>
+              <div id="detailHeader" class="panel" style="margin:0 0 10px">
+                <!-- se llena dinámicamente -->
+              </div>
+              <div class="panel" style="margin:0">
+                <div class="row" style="margin-bottom:8px">
+                  <h3 style="margin:0">Participantes de este desafío</h3>
+                  <div class="hint">Ordenado por puntaje</div>
+                </div>
+                <div class="tablewrap" style="max-height:50vh">
+                  <table>
+                    <thead><tr><th>#</th><th>Estudiante</th><th>Puntaje</th><th>Curso</th></tr></thead>
+                    <tbody id="tbodyChResults"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
         <div id="resultsSection" class="hidden">
           <div class="panel" style="margin:0">
             <div class="row">
-              <h3 style="margin:0">Resultados de desafíos</h3>
-              <div class="hint">Selecciona un desafío para ver sus puntajes</div>
+              <h3 style="margin:0">Resultados de desafíos (local)</h3>
+              <div class="hint">Vista de ejemplo sin servidor</div>
             </div>
             <div id="resultsIndex" style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px"></div>
 
@@ -223,18 +228,23 @@
 
   <div id="toast" class="toast">Hecho</div>
 
-  <!-- Socket.IO client -->
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.8.1/dist/socket.io.min.js" crossorigin="anonymous"></script>
 
   <script>
-/* ====== Utiles ====== */
+/* ========= Utils ========= */
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
 const toast=m=>{const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200);};
 function escapeHtml(s){return (s??"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;");}
+function nowIso(){return new Date().toISOString();}
+function humanUntil(ms){const s=Math.max(0,Math.floor((ms-Date.now())/1000));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;return h>0?`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`:`${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`}
 
-/* ====== Desafíos (docentes) - LocalStorage para UI ====== */
+/* ========= Local UI lists (para portada) ========= */
 const LS_CHALLENGES='arq.challenges.v2', LS_RESULTS='arq.results.v1';
-const ADMIN_PIN='1234';
+let challenges=load(LS_CHALLENGES,[]), results=load(LS_RESULTS,{});
+function load(k,def){try{return JSON.parse(localStorage.getItem(k))??def}catch{return def}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+
+/* Combinaciones de UI */
 const COMBOS=[
   {id:'H2O',code:'H₂O',name:'Agua',color:'#66CCFF'},
   {id:'NaCl',code:'NaCl',name:'Sal de mesa',color:'#FFFFFF'},
@@ -247,12 +257,8 @@ const COMBOS=[
   {id:'CuO',code:'CuO',name:'Óxido de cobre',color:'#006600'},
   {id:'ZnS',code:'ZnS',name:'Sulfuro de zinc',color:'#99FF99'}
 ];
-let challenges=load(LS_CHALLENGES,[]), results=load(LS_RESULTS,{});
-function load(k,def){try{return JSON.parse(localStorage.getItem(k))??def}catch{return def}}
-function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
-function humanUntil(ms){const s=Math.max(0,Math.floor((ms-Date.now())/1000));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;return h>0?`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`:`${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`}
 
-/* ==== MAPA UI → fusion_id backend (ajusta si difieren) ==== */
+/* UI → fusion_id en la BD (ajusta si difieren) */
 const FUSION_ID_MAP = {
   H2O:'agua',
   NaCl:'sal_de_mesa',
@@ -266,6 +272,21 @@ const FUSION_ID_MAP = {
   ZnS:'sulfuro_de_zinc'
 };
 
+/* ========= Endpoints ========= */
+const API_BASE="https://ar-back.onrender.com";
+/* Si tus rutas cambian, ajusta aquí: */
+const EP = {
+  listChallenges: `${API_BASE}/challenges`,                // GET
+  activeChallenges: `${API_BASE}/challenges/active`,       // GET (fallback)
+  createChallenge: `${API_BASE}/challenges`,               // POST
+  expireOthers:   `${API_BASE}/challenges/expire_others`,  // POST {keep_id}
+  deleteChallenge: id => `${API_BASE}/challenges/${id}`,    // DELETE
+  resultsByChallengePreferred: id => `${API_BASE}/challenges/${id}/results`,      // GET
+  resultsByChallengeAlt1:      id => `${API_BASE}/scores/by_challenge/${id}`,     // GET
+  resultsByChallengeAlt2:      id => `${API_BASE}/scores/by_challenge?challenge_id=${id}` // GET
+};
+
+/* ========= Portada: render de tarjetas locales ========= */
 function renderActiveChallenges(){
   const root=$('#activeChallenges'); root.innerHTML='';
   const active=challenges.filter(c=>c.expiresAt>Date.now());
@@ -293,46 +314,207 @@ function renderActiveChallenges(){
 function tick(){
   $$('#activeChallenges [data-countdown]').forEach(el=>{
     const c=challenges.find(x=>x.id===el.dataset.countdown); if(!c)return;
-    if(c.expiresAt<=Date.now()){renderActiveChallenges(); renderChallengeList(); renderResultsIndex(); save(LS_CHALLENGES,challenges);}
+    if(c.expiresAt<=Date.now()){renderActiveChallenges(); save(LS_CHALLENGES,challenges);}
     else el.textContent=humanUntil(c.expiresAt);
   });
 }
 setInterval(tick,1000);
 
-function renderChallengeList(){
-  const box=$('#challengeList'); if(!box) return;
-  if(!challenges.length){box.innerHTML='<div class="hint">Aún no hay desafíos creados.</div>'; return;}
-  box.innerHTML=challenges.sort((a,b)=>a.expiresAt-b.expiresAt).map(c=>{
-    const combo=COMBOS.find(x=>x.id===c.comboId);
-    const state=c.expiresAt>Date.now()?'Activo':'Vencido';
-    return `<div class="cardLine">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="dot" style="background:${combo?.color||'#7AE7FF'}"></div>
+/* ========= Admin: lista desde SERVIDOR ========= */
+$('#btnRefreshChallenges')?.addEventListener('click', loadServerChallenges);
+$('#btnCloseDetail')?.addEventListener('click', ()=>{$('#serverChallengeDetail').classList.add('hidden');});
+
+async function httpJson(url, opt={}){
+  const res = await fetch(url,{mode:'cors',cache:'no-store',...opt});
+  if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  const ct = res.headers.get('content-type')||'';
+  return ct.includes('application/json') ? res.json() : res.text();
+}
+
+function parseUntilVal(v){
+  const now=Date.now();
+  if(v==='2d')return now+2*24*60*60*1000;
+  if(v==='3d')return now+3*24*60*60*1000;
+  if(v.endsWith('m'))return now+Number(v.replace('m',''))*60*1000;
+  if(v.endsWith('h'))return now+Number(v.replace('h',''))*60*60*1000;
+  return now+60*60*1000;
+}
+
+/* Publicar al backend (crea + expira otros) y refleja en UI de portada */
+$('#btnAddChallenge')?.addEventListener('click', publishChallenge);
+async function publishChallenge(){
+  try{
+    const title = ($('#dName').value||'').trim();
+    const points= Math.max(1,Number($('#pts').value||100));
+    const count = Math.max(1,Number($('#count').value||1));
+    let expiresAtMs;
+    const dur=$('#dur').value;
+    if(dur==='custom'){
+      const dt=$('#customUntil').value;
+      if(!dt){ toast('Elige fecha/hora'); return; }
+      expiresAtMs = new Date(dt).getTime();
+    } else {
+      expiresAtMs = parseUntilVal(dur);
+    }
+    if(expiresAtMs<=Date.now()){ toast('La expiración debe ser en el futuro'); return; }
+    const expires_at = new Date(expiresAtMs).toISOString();
+
+    const checked=[...$('#comboList').querySelectorAll('input:checked')].map(i=>i.value);
+    if(!checked.length){ toast('Selecciona al menos una combinación'); return; }
+    const chosenUI = checked.length>count ? randPick(checked,count) : checked;
+    const fusion_ids = chosenUI.map(k=>FUSION_ID_MAP[k]).filter(Boolean);
+    if(!fusion_ids.length){ toast('Las combinaciones no tienen mapeo en backend'); return; }
+
+    // Crear en servidor
+    const created = await httpJson(EP.createChallenge,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        name:title||'Desafío',
+        points_per_combo:points,
+        required_count:count,
+        expires_at,
+        fusion_ids
+      })
+    });
+    const keepId = created?.id;
+    if(($('#expireOthers')?.checked ?? true) && keepId){
+      try{ await httpJson(EP.expireOthers,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keep_id:keepId})}); }catch(e){ console.warn('expire_others fallback:',e); }
+    }
+
+    // Reflejo rápido en portada (una tarjeta)
+    const uiId = (crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
+    challenges.push({id:uiId,comboId:chosenUI[0],points,expiresAt:expiresAtMs,title});
+    save(LS_CHALLENGES,challenges);
+    renderActiveChallenges();
+
+    // Refrescar “Administrar…”
+    await loadServerChallenges();
+    toast('Desafío publicado');
+  }catch(e){ console.error(e); toast('Error publicando: '+e.message); }
+}
+
+function randPick(arr,n){const a=[...arr],o=[];while(a.length&&o.length<n){o.push(a.splice(Math.random()*a.length|0,1)[0]);}return o;}
+
+async function loadServerChallenges(){
+  const box = $('#serverChallengeList');
+  box.innerHTML = '<div class="hint">Cargando…</div>';
+  try{
+    let list = await httpJson(EP.listChallenges).catch(async()=>httpJson(EP.activeChallenges));
+    if(!Array.isArray(list)) list = list? [list] : [];
+    // Filtrar activos por tiempo si el backend devuelve todos
+    const now = new Date();
+    list = list.filter(c => !c.expires_at || new Date(c.expires_at) > now);
+
+    if(!list.length){ box.innerHTML = '<div class="hint">No hay desafíos activos en el servidor.</div>'; return; }
+
+    // Pintar tarjetas
+    box.innerHTML = list.map(c=>{
+      const combos = (c.fusion_ids||[]).map(fid=>`<span class="badge" title="${fid}">${fid}</span>`).join(' ');
+      const exp = c.expires_at ? new Date(c.expires_at).toLocaleString() : '—';
+      return `<div class="cardLine">
         <div>
-          <div style="font-weight:800">${c.title?`${c.title} · `:''}${combo?.code||c.comboId}</div>
-          <div class="hint">${state} · Exp: ${new Date(c.expiresAt).toLocaleString()} · +${c.points} pts</div>
+          <div style="font-weight:800">${escapeHtml(c.name||'Desafío')}</div>
+          <div class="hint">+${c.points_per_combo||0} pts · Exigir: ${c.required_count||1} · Exp: ${exp}</div>
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${combos||'<span class="badge">sin combinaciones</span>'}</div>
+        </div>
+        <div class="tools">
+          <button class="btn small" data-open="${c.id}">Abrir</button>
+          <button class="btn small ghost" data-del="${c.id}">Eliminar</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Wire: abrir detalle
+    box.querySelectorAll('[data-open]').forEach(b=>{
+      b.onclick = ()=> openServerChallengeDetail(list.find(x=>String(x.id)===String(b.dataset.open)));
+    });
+    // Wire: eliminar
+    box.querySelectorAll('[data-del]').forEach(b=>{
+      b.onclick = ()=> deleteServerChallenge(b.dataset.del);
+    });
+  }catch(e){
+    console.error(e);
+    box.innerHTML = `<div class="hint">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function deleteServerChallenge(id){
+  if(!confirm('¿Eliminar este desafío?')) return;
+  try{
+    await httpJson(EP.deleteChallenge(id),{method:'DELETE'});
+    toast('Desafío eliminado');
+    await loadServerChallenges();
+  }catch(e){ console.error(e); toast('No se pudo eliminar: '+e.message); }
+}
+
+async function openServerChallengeDetail(ch){
+  if(!ch) return;
+  const detail = $('#serverChallengeDetail');
+  const head = $('#detailHeader');
+  const tbody = $('#tbodyChResults');
+  detail.classList.remove('hidden');
+
+  // Header
+  const exp = ch.expires_at ? new Date(ch.expires_at).toLocaleString() : '—';
+  const combos = (ch.fusion_ids||[]).map(fid=>`<span class="badge" title="${fid}">${fid}</span>`).join(' ');
+  head.innerHTML = `
+    <div class="row" style="gap:10px">
+      <div>
+        <div style="font-weight:800;font-size:18px">${escapeHtml(ch.name||'Desafío')}</div>
+        <div class="kv" style="margin-top:8px">
+          <b>Puntos por combo</b><div>${ch.points_per_combo||0}</div>
+          <b>Cantidad a exigir</b><div>${ch.required_count||1}</div>
+          <b>Expira</b><div>${exp}</div>
+          <b>Combinaciones</b><div style="display:flex;gap:6px;flex-wrap:wrap">${combos||'-'}</div>
         </div>
       </div>
-      <div class="tools">
-        <button class="btn small" data-view="${c.id}">Ver resultados</button>
-        <button class="btn small ghost" data-del="${c.id}">Eliminar</button>
+      <div>
+        <button class="btn small ghost" onclick="(async()=>{if(confirm('¿Eliminar este desafío?')){try{await fetch('${EP.deleteChallenge(ch.id)}',{method:'DELETE'});toast('Desafío eliminado');document.getElementById('serverChallengeDetail').classList.add('hidden');loadServerChallenges();}catch(e){toast('Error: '+e.message)}})()">Eliminar</button>
       </div>
-    </div>`;
-  }).join('');
-  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
-    const id=b.dataset.del; challenges=challenges.filter(x=>x.id!==id); delete results[id];
-    save(LS_CHALLENGES,challenges); save(LS_RESULTS,results);
-    renderChallengeList(); renderActiveChallenges(); renderResultsIndex(); toast('Desafío eliminado');
-  });
-  box.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>openResultsDetail(b.dataset.view));
+    </div>
+  `;
+
+  // Resultados
+  tbody.innerHTML = '<tr><td colspan="4" class="hint">Cargando…</td></tr>';
+  try{
+    let rows;
+    try{ rows = await httpJson(EP.resultsByChallengePreferred(ch.id)); }
+    catch{ try{ rows = await httpJson(EP.resultsByChallengeAlt1(ch.id)); }
+    catch{ rows = await httpJson(EP.resultsByChallengeAlt2(ch.id)); } }
+
+    if(!Array.isArray(rows) || !rows.length){
+      tbody.innerHTML = '<tr><td colspan="4" class="hint">Aún no hay respuestas para este desafío.</td></tr>';
+      return;
+    }
+    rows = rows.sort((a,b)=>(b.score||0)-(a.score||0) || (a.name||'').localeCompare(b.name||''));
+    tbody.innerHTML = '';
+    rows.forEach((r,i)=>{
+      const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
+      const tr=document.createElement('tr');
+      tr.innerHTML = `<td class="rank">${medal}${i+1}</td><td class="name">${escapeHtml(r.name||'-')}</td><td class="score">${r.score??0}</td><td>${escapeHtml(r.class||r.course||'-')}</td>`;
+      tbody.appendChild(tr);
+    });
+  }catch(e){
+    console.error(e);
+    tbody.innerHTML = `<tr><td colspan="4" class="hint">No se pudieron cargar los resultados: ${escapeHtml(e.message)}</td></tr>`;
+  }
 }
-function openAdminTab(which){
-  $('#tabCreate').classList.toggle('active', which==='create');
-  $('#tabResults').classList.toggle('active', which==='results');
-  $('#creatorSection').classList.toggle('hidden', which!=='create');
-  $('#resultsSection').classList.toggle('hidden', which!=='results');
-  if(which==='results') renderResultsIndex();
+
+/* ========= Constructor: combos y búsqueda ========= */
+function renderComboList(){
+  const wrap=$('#comboList'); if(!wrap) return;
+  const term=($('#comboSearch')?.value||'').trim().toLowerCase();
+  const list=COMBOS.filter(c=>!term || c.id.toLowerCase().includes(term) || c.code.toLowerCase().includes(term) || c.name.toLowerCase().includes(term));
+  wrap.innerHTML=list.map(c=>`
+    <label class="combo-item"><input type="checkbox" value="${c.id}"/>
+      <span class="dot" style="background:${c.color}"></span>
+      <span><strong>${c.code}</strong> — ${c.name}</span>
+    </label>`).join('') || `<div class="hint">Sin resultados para “${term}”.</div>`;
 }
+$('#comboSearch')?.addEventListener('input',renderComboList);
+
+/* ========= “Resultados (local)” demo existente ========= */
 function renderResultsIndex(){
   const wrap=$('#resultsIndex'); if(!wrap) return;
   $('#resultDetail').classList.add('hidden'); wrap.classList.remove('hidden');
@@ -363,31 +545,18 @@ function openResultsDetail(chId){
   $('#resultHeader').innerHTML=`<div class="row" style="gap:10px">
     <div class="dot" style="background:${combo?.color||'#7AE7FF'}"></div>
     <div><div style="font-weight:800">${c.title||combo?.name||'Desafío'} · ${combo?.code||c.comboId}</div>
-    <div class="hint">Expira: ${new Date(c.expiresAt).toLocaleString()} · +${c.points} pts · ${arr.length} resultado(s)</div></div></div>`;
+    <div class="hint">Expira: ${new Date(c.expiresAt).toLocaleString()} · +${c.points} pts · ${(results[chId]||[]).length} resultado(s)</div></div></div>`;
   const tb=$('#tbodyResults'); tb.innerHTML='';
   arr.forEach((r,i)=>{
     const medal=i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td class="rank">${medal}${i+1}</td><td class="name">${r.name}</td><td class="score">${r.score}</td><td>${r.class||'-'}</td>`;
+    tr.innerHTML=`<td class="rank">${medal}${i+1}</td><td class="name">${escapeHtml(r.name)}</td><td class="score">${r.score}</td><td>${r.class||'-'}</td>`;
     tb.appendChild(tr);
   });
   $('#btnBackResults').onclick=()=>{ $('#resultDetail').classList.add('hidden'); $('#resultsIndex').classList.remove('hidden'); };
 }
-function renderComboList(){
-  const wrap=$('#comboList'); if(!wrap) return;
-  const term=($('#comboSearch')?.value||'').trim().toLowerCase();
-  const list=COMBOS.filter(c=>!term || c.id.toLowerCase().includes(term) || c.code.toLowerCase().includes(term) || c.name.toLowerCase().includes(term));
-  wrap.innerHTML=list.map(c=>`
-    <label class="combo-item"><input type="checkbox" value="${c.id}"/>
-      <span class="dot" style="background:${c.color}"></span>
-      <span><strong>${c.code}</strong> — ${c.name}</span>
-    </label>`).join('') || `<div class="hint">Sin resultados para “${term}”.</div>`;
-}
-function parseUntil(v){const now=Date.now(); if(v==='2d')return now+2*24*60*60*1000; if(v==='3d')return now+3*24*60*60*1000; if(v.endsWith('m'))return now+Number(v.replace('m',''))*60*1000; if(v.endsWith('h'))return now+Number(v.replace('h',''))*60*60*1000; return now+60*60*1000;}
-function randPick(arr,n){const a=[...arr],o=[];while(a.length&&o.length<n){o.push(a.splice(Math.random()*a.length|0,1)[0]);}return o;}
 
-/* ====== Ranking conectado al backend ====== */
-const API_BASE="https://ar-back.onrender.com";
+/* ========= Ranking live ========= */
 const rankStatus=document.getElementById("rankStatus");
 const tbody=document.getElementById("tbody");
 const loadMoreWrap=document.getElementById("loadMoreWrap");
@@ -395,7 +564,6 @@ const btnMore=document.getElementById("btnMore");
 let topRows=[]; let currentLimit=20; let socket=null;
 
 function setRankStatus(msg){ if(rankStatus) rankStatus.textContent=msg; }
-
 function renderRanking(){
   const rows=[...topRows].sort((a,b)=>b.score-a.score || a.name.localeCompare(b.name));
   tbody.innerHTML='';
@@ -433,133 +601,35 @@ btnMore?.addEventListener('click', async ()=>{
   }catch(e){ console.warn(e); }
 });
 
-/* ====== PUBLICAR DESAFÍO → BACKEND ====== */
-async function publishChallenge(){
-  try{
-    const title = ($('#dName').value || '').trim();
-    const points = Math.max(1, Number($('#pts').value || 100));
-    const count  = Math.max(1, Number($('#count').value || 1));
-
-    // calcular expiración
-    let expiresAtMs;
-    const dur = $('#dur').value;
-    if(dur === 'custom'){
-      const dt = $('#customUntil').value;
-      if(!dt){ toast('Elige fecha/hora'); return; }
-      expiresAtMs = new Date(dt).getTime();
-    } else {
-      expiresAtMs = parseUntil(dur);
-    }
-    if(expiresAtMs <= Date.now()){ toast('La expiración debe ser en el futuro'); return; }
-    const expires_at = new Date(expiresAtMs).toISOString();
-
-    // combos seleccionados (IDs de UI)
-    const checked = [...$('#comboList').querySelectorAll('input:checked')].map(i=>i.value);
-    if(!checked.length){ toast('Selecciona al menos una combinación'); return; }
-
-    // elegir hasta "count"
-    const chosenUI = checked.length > count ? randPick(checked, count) : checked;
-
-    // mapear a fusion_id backend
-    const fusion_ids = chosenUI.map(id => FUSION_ID_MAP[id]).filter(Boolean);
-    if(!fusion_ids.length){ toast('Las combinaciones seleccionadas no tienen mapeo en el backend'); return; }
-
-    // construir payload
-    const payload = {
-      name: title || 'Desafío',
-      points_per_combo: points,
-      required_count: count,
-      expires_at,
-      fusion_ids
-    };
-
-    // 1) crear reto en backend
-    const res = await fetch(`${API_BASE}/challenges`, {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if(!res.ok){
-      const txt = await res.text();
-      throw new Error(`POST /challenges: ${res.status} ${txt}`);
-    }
-    const created = await res.json();
-    const challengeId = created?.id;
-
-    // 2) expirar otros (opcional)
-    const expire = $('#expireOthers')?.checked ?? true;
-    if(expire && challengeId){
-      try{
-        await fetch(`${API_BASE}/challenges/expire_others`,{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ keep_id: challengeId })
-        });
-      }catch(e){ console.warn('expire_others no disponible (ignorado).', e); }
-    }
-
-    // 3) reflejo local para que la tarjeta se vea ya
-    const uiId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random());
-    challenges.push({
-      id: uiId,
-      comboId: chosenUI[0],  // mostramos la primera en la tarjeta
-      points,
-      expiresAt: expiresAtMs,
-      title
-    });
-    save(LS_CHALLENGES, challenges);
-    renderActiveChallenges();
-    renderChallengeList();
-    renderResultsIndex();
-
-    toast('Desafío publicado en el servidor');
-  }catch(err){
-    console.error(err);
-    toast('Error publicando: ' + err.message);
-  }
-}
-
-/* ====== Inicialización ====== */
-const ovl=$('#ovl');
-$('#btnDocentes').onclick=()=>{ ovl.classList.add('show'); $('#pin').value=''; $('#adminBox').classList.add('hidden'); };
-$('#closeOvl').onclick=()=>ovl.classList.remove('show');
-$('#btnUnlock').onclick=()=>{ const ok=(($('#pin').value)||'')===ADMIN_PIN;
-  $('#adminBox').classList.toggle('hidden',!ok);
-  if(ok){ toast('Modo docente activado'); renderChallengeList(); renderComboList(); renderResultsIndex(); openAdminTab('create'); }
-  else toast('PIN incorrecto');
-};
-$('#dur').addEventListener('change',()=>$('#customUntil').classList.toggle('hidden',$('#dur').value!=='custom'));
-$('#btnAddChallenge').addEventListener('click',publishChallenge);
-$('#btnDemo').addEventListener('click',()=>{ ensureDemoResults(); renderResultsIndex(); toast('Datos demo cargados'); });
-$('#btnClearAll').addEventListener('click',()=>{ if(confirm('¿Vaciar resultados locales de desafíos?')){ results={}; save(LS_RESULTS,results); renderResultsIndex(); toast('Resultados locales vaciados'); }});
-$('#comboSearch')?.addEventListener('input',renderComboList);
-$('#tabCreate').onclick=()=>openAdminTab('create');
-$('#tabResults').onclick=()=>openAdminTab('results');
-
-renderActiveChallenges(); renderChallengeList(); renderComboList(); renderResultsIndex();
-
-function ensureDemoResults(){
-  challenges.forEach(c=>{
-    if(!results[c.id] || !results[c.id].length){
-      const sample=[{name:'Ana López',score:920,class:'3°A'},{name:'Juan Pérez',score:880,class:'3°B'},{name:'María Díaz',score:860,class:'3°A'},{name:'Luis Soto',score:810,class:'3°C'}];
-      results[c.id]=sample.map(s=>({name:s.name,class:s.class,score:Math.max(10,Math.floor(s.score*0.3+Math.random()*c.points))}));
-    }
-  });
-  save(LS_RESULTS,results);
-}
-
-/* ====== Ranking live ====== */
+/* ========= Init ========= */
+function renderComboListInit(){ renderComboList(); }
+function renderActiveInit(){ renderActiveChallenges(); }
+function resultsLocalInit(){ renderResultsIndex(); }
 (async ()=>{
+  renderComboListInit();
+  renderActiveInit();
+  resultsLocalInit();
   try{
     setRankStatus("Cargando top…");
     topRows = await fetchTopHTTP(currentLimit);
     renderRanking();
     setRankStatus("Conectando en vivo…");
-  }catch(e){
-    setRankStatus("No se pudo cargar: "+e.message);
-  }
+  }catch(e){ setRankStatus("No se pudo cargar: "+e.message); }
   startLiveSocket();
+  // precargar lista de servidor
+  loadServerChallenges();
 })();
+
+/* ========= Login admin modal ========= */
+const ovl=$('#ovl');
+$('#btnDocentes').onclick=()=>{ ovl.classList.add('show'); $('#pin').value=''; $('#adminBox').classList.add('hidden'); };
+$('#closeOvl').onclick=()=>ovl.classList.remove('show');
+const ADMIN_PIN='1234';
+$('#btnUnlock').onclick=()=>{ const ok=(($('#pin').value)||'')===ADMIN_PIN;
+  $('#adminBox').classList.toggle('hidden',!ok);
+  if(ok){ toast('Modo docente activado'); loadServerChallenges(); }
+  else toast('PIN incorrecto');
+};
   </script>
 </body>
 </html>
