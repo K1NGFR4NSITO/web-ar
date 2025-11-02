@@ -75,6 +75,24 @@
       </div>
     </header>
 
+    <!-- NUEVO: envío de puntajes (móvil/web) -->
+    <section class="panel" id="submitPanel">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <span class="tag">Enviar puntaje</span>
+          <h2 style="margin:8px 0 0">Registro rápido</h2>
+          <div class="hint">Funciona con formularios móviles (x-www-form-urlencoded) o con fetch JSON.</div>
+        </div>
+      </div>
+      <form id="scoreForm" method="post" action="" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <input class="input" name="name" id="sf_name" placeholder="Nombre" required />
+        <input class="input" name="score" id="sf_score" placeholder="Puntaje" inputmode="numeric" pattern="[0-9]*" required />
+        <button class="btn small">Enviar</button>
+        <button type="button" id="btnFake" class="btn small ghost">Cargar ejemplo</button>
+      </form>
+      <div id="sf_msg" class="hint" style="margin-top:8px"></div>
+    </section>
+
     <section class="panel" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <div><span class="tag">Desafíos activos</span><h2 style="margin:8px 0 0">¡Completa combinaciones a tiempo!</h2></div>
@@ -103,7 +121,7 @@
     </section>
   </div>
 
-  <!-- MODAL DOCENTES -->
+  <!-- MODAL DOCENTES (no tocado) -->
   <div class="overlay" id="ovl">
     <div class="panel modal">
       <div class="row">
@@ -216,6 +234,23 @@
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.8.1/dist/socket.io.min.js" crossorigin="anonymous"></script>
 
   <script>
+/* ========= Config ========= */
+const API_BASE="https://ar-back.onrender.com";
+const EP={
+  listChallenges:`${API_BASE}/challenges`,
+  activeChallenges:`${API_BASE}/challenges/active`,
+  createChallenge:`${API_BASE}/challenges`,
+  expireOthers:`${API_BASE}/challenges/expire_others`,
+  challengeById:id=>`${API_BASE}/challenges/${id}`,
+  deleteChallenge:id=>`${API_BASE}/challenges/${id}`,
+  resultsPreferred:id=>`${API_BASE}/challenges/${id}/results`,
+  resultsAlt1:id=>`${API_BASE}/scores/by_challenge/${id}`,
+  resultsAlt2:id=>`${API_BASE}/scores/by_challenge?challenge_id=${id}`,
+  submitScore:`${API_BASE}/scores`,
+  top:n=>`${API_BASE}/scores/top?n=${n}`
+};
+const ADMIN_TOKEN_CLIENT='changeme';
+
 /* ========= Utils ========= */
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
 const toast=m=>{const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200);};
@@ -228,7 +263,7 @@ let challenges=load(LS_CHALLENGES,[]), results=load(LS_RESULTS,{});
 function load(k,def){try{return JSON.parse(localStorage.getItem(k))??def}catch{return def}}
 function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
 
-/* Combinaciones */
+/* Combinaciones (no tocado) */
 const COMBOS=[
   {id:'H2O',code:'H₂O',name:'Agua',color:'#66CCFF'},
   {id:'NaCl',code:'NaCl',name:'Sal de mesa',color:'#FFFFFF'},
@@ -242,40 +277,20 @@ const COMBOS=[
   {id:'ZnS',code:'ZnS',name:'Sulfuro de zinc',color:'#99FF99'}
 ];
 
-/* UI → fusion_id */
+/* UI → fusion_id (no tocado) */
 const FUSION_ID_MAP={
   H2O:'agua', NaCl:'sal_de_mesa', CO2:'dioxido_de_carbono', NH3:'amoniaco',
   H2O2:'peroxido_de_hidrogeno', KCl:'cloruro_de_potasio', MgO:'oxido_de_magnesio',
   CaCO3:'carbonato_de_calcio', CuO:'oxido_de_cobre', ZnS:'sulfuro_de_zinc'
 };
 
-/* ========= Endpoints ========= */
-const API_BASE="https://ar-back.onrender.com";
-const EP={
-  listChallenges:`${API_BASE}/challenges`,
-  activeChallenges:`${API_BASE}/challenges/active`,
-  createChallenge:`${API_BASE}/challenges`,
-  expireOthers:`${API_BASE}/challenges/expire_others`,
-  challengeById:id=>`${API_BASE}/challenges/${id}`,
-  deleteChallenge:id=>`${API_BASE}/challenges/${id}`,
-  resultsPreferred:id=>`${API_BASE}/challenges/${id}/results`,
-  resultsAlt1:id=>`${API_BASE}/scores/by_challenge/${id}`,
-  resultsAlt2:id=>`${API_BASE}/scores/by_challenge?challenge_id=${id}`
-};
-
-/* ===== Auth para admin (BEARER) ===== */
-const ADMIN_TOKEN_CLIENT = 'changeme'; // <-- igual que ADMIN_TOKEN en Render
-let ADMIN_PIN_VALUE = "";               // solo para desbloquear la UI
-
+/* ===== Auth admin (no tocado) ===== */
+let ADMIN_PIN_VALUE = "";
 function adminHeaders(extra={}) {
-  return {
-    'Content-Type':'application/json',
-    'Authorization': `Bearer ${ADMIN_TOKEN_CLIENT}`,
-    ...extra
-  };
+  return {'Content-Type':'application/json','Authorization': `Bearer ${ADMIN_TOKEN_CLIENT}`,...extra};
 }
 
-/* ========= Portada ========= */
+/* ========= Portada (no tocado) ========= */
 function renderActiveChallenges(){
   const root=$('#activeChallenges'); root.innerHTML='';
   const active=challenges.filter(c=>c.expiresAt>Date.now());
@@ -309,7 +324,7 @@ function tick(){
 }
 setInterval(tick,1000);
 
-/* ========= Admin: lista desde servidor ========= */
+/* ========= Admin: lista desde servidor (no tocado) ========= */
 $('#btnRefreshChallenges')?.addEventListener('click', loadServerChallenges);
 $('#btnCloseDetail')?.addEventListener('click', ()=>$('#serverChallengeDetail').classList.add('hidden'));
 
@@ -319,7 +334,6 @@ async function httpJson(url,opt={}) {
   const ct=res.headers.get('content-type')||'';
   return ct.includes('application/json')?res.json():res.text();
 }
-
 function parseUntilVal(v){
   const now=Date.now();
   if(v==='2d')return now+2*24*60*60*1000;
@@ -329,7 +343,7 @@ function parseUntilVal(v){
   return now+60*60*1000;
 }
 
-/* Publicar al backend */
+/* Publicar desafío (no tocado) */
 $('#btnAddChallenge')?.addEventListener('click', publishChallenge);
 async function publishChallenge(){
   try{
@@ -350,7 +364,6 @@ async function publishChallenge(){
     }
     if(expiresAtMs<=Date.now()){ toast('La expiración debe ser en el futuro'); return; }
 
-    // >>> CLAVE: convertir a minutos para el backend
     const duration_minutes = Math.max(1, Math.ceil((expiresAtMs - Date.now())/60000));
 
     const checked=[...$('#comboList').querySelectorAll('input:checked')].map(i=>i.value);
@@ -366,7 +379,7 @@ async function publishChallenge(){
         name:title||'Desafío',
         points_per_combo:points,
         required_count:count,
-        duration_minutes,          // <<< enviado al server
+        duration_minutes,
         fusion_ids
       })
     });
@@ -382,7 +395,6 @@ async function publishChallenge(){
       }catch(e){ console.warn('expire_others:',e); }
     }
 
-    // UI local para ver activo al instante
     const uiId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
     challenges.push({id:uiId,comboId:chosenUI[0],points,expiresAt:expiresAtMs,title});
     save(LS_CHALLENGES,challenges);
@@ -394,7 +406,7 @@ async function publishChallenge(){
 }
 function randPick(arr,n){const a=[...arr],o=[];while(a.length&&o.length<n){o.push(a.splice(Math.random()*a.length|0,1)[0]);}return o;}
 
-/* Cargar lista servidor */
+/* Cargar lista servidor (no tocado) */
 async function loadServerChallenges(){
   const box=$('#serverChallengeList');
   box.innerHTML='<div class="hint">Cargando…</div>';
@@ -430,7 +442,7 @@ async function loadServerChallenges(){
   }
 }
 
-/* Eliminar */
+/* Eliminar (no tocado) */
 async function deleteServerChallenge(id){
   if(!confirm('¿Eliminar este desafío?')) return;
   try{
@@ -441,7 +453,7 @@ async function deleteServerChallenge(id){
   }catch(e){ console.error(e); toast('No se pudo eliminar: '+e.message); }
 }
 
-/* Detalle + participantes */
+/* Detalle + participantes (no tocado) */
 async function openServerChallengeDetail(ch){
   if(!ch) return;
   const detail=$('#serverChallengeDetail');
@@ -487,7 +499,7 @@ async function openServerChallengeDetail(ch){
   }
 }
 
-/* ========= Búsqueda combos ========= */
+/* ========= Búsqueda combos (no tocado) ========= */
 function renderComboList(){
   const wrap=$('#comboList'); if(!wrap) return;
   const term=($('#comboSearch')?.value||'').trim().toLowerCase();
@@ -500,7 +512,7 @@ function renderComboList(){
 }
 $('#comboSearch')?.addEventListener('input',renderComboList);
 
-/* ========= Resultados demo ========= */
+/* ========= Resultados demo (no tocado) ========= */
 function renderResultsIndex(){
   const wrap=$('#resultsIndex'); if(!wrap) return;
   $('#resultDetail').classList.add('hidden'); wrap.classList.remove('hidden');
@@ -562,7 +574,7 @@ function renderRanking(){
   loadMoreWrap.classList.toggle('hidden', rows.length < currentLimit);
 }
 async function fetchTopHTTP(n){
-  const res=await fetch(`${API_BASE}/scores/top?n=${n}`,{cache:"no-store",mode:"cors"});
+  const res=await fetch(EP.top(n),{cache:"no-store",mode:"cors"});
   if(!res.ok) throw new Error(res.status+" "+res.statusText);
   return res.json();
 }
@@ -617,7 +629,7 @@ $('#btnUnlock').onclick=()=>{
   const entered = ($('#pin').value)||'';
   const ok = (entered === ADMIN_PIN);
   if(ok){
-    ADMIN_PIN_VALUE = entered;             // solo para UI
+    ADMIN_PIN_VALUE = entered;
     $('#adminBox').classList.remove('hidden');
     toast('Modo docente activado');
     loadServerChallenges();
@@ -628,11 +640,61 @@ $('#btnUnlock').onclick=()=>{
   }
 };
 
-/* Mostrar/ocultar fecha custom */
+/* Mostrar/ocultar fecha custom (no tocado) */
 $('#dur')?.addEventListener('change', ()=>{
   const show = $('#dur').value === 'custom';
   $('#customUntil').classList.toggle('hidden', !show);
 });
+
+/* ========= NUEVO: manejo envío puntajes ========= */
+/* - Progressive enhancement:
+   - Intenta fetch JSON
+   - Si falla, deja que el form haga POST clásico (x-www-form-urlencoded)
+*/
+const scoreForm = $('#scoreForm');
+const sfMsg = $('#sf_msg');
+if (scoreForm) {
+  // set action explícito
+  scoreForm.action = EP.submitScore;
+
+  scoreForm.addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    sfMsg.textContent = 'Enviando…';
+    const name = ($('#sf_name').value || '').trim();
+    const scoreStr = ($('#sf_score').value || '').trim();
+    const score = Number(scoreStr);
+
+    if (!name || !Number.isFinite(score) || score < 0) {
+      sfMsg.textContent = 'Completa nombre y puntaje válido.';
+      return;
+    }
+    try{
+      // Intento JSON (para navegadores modernos)
+      const res = await fetch(EP.submitScore, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name, score })
+      });
+      if(!res.ok) throw new Error(res.status+' '+res.statusText);
+      await res.json().catch(()=>{});
+      toast('Puntaje registrado');
+      sfMsg.textContent = 'Puntaje registrado ✅';
+      $('#sf_score').value = '';
+      // refresca top
+      try { topRows = await fetchTopHTTP(currentLimit); renderRanking(); } catch {}
+      socket?.emit?.('get_top', currentLimit);
+    }catch(e){
+      // Fallback: deja que un submit nativo lo intente (urlencoded)
+      sfMsg.textContent = 'No se pudo por JSON, intentando método clásico…';
+      setTimeout(()=>{ scoreForm.submit(); }, 100);
+    }
+  });
+
+  $('#btnFake')?.addEventListener('click', ()=>{
+    $('#sf_name').value = 'Demo ' + Math.floor(Math.random()*100);
+    $('#sf_score').value = String(50 + Math.floor(Math.random()*500));
+  });
+}
   </script>
 </body>
 </html>
