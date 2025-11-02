@@ -22,38 +22,29 @@
   display:flex;
   align-items:center;
   gap:14px;
-  flex-wrap:nowrap;         /* no dejes que salte de línea */
+  flex-wrap:nowrap;
   position:relative;
 }
-
 .logo{
   width:42px; height:42px;
   border-radius:12px;
   background:conic-gradient(from 0deg,#7AE7FF,#9D84FF,#FF80E8,#75FFB2,#7AE7FF);
   box-shadow:0 6px 24px #0007;
-  flex:0 0 42px;            /* fija el ancho del bloque de color */
+  flex:0 0 42px;
   position:relative;
-  z-index:1;                /* debajo del texto */
-  margin-right: 10px;
-
+  z-index:1;
+  margin-right:10px;
 }
-
 .title{
   margin:0;
   font-weight:800;
   font-size:clamp(18px,3.6vw,28px);
   line-height:1.1;
   position:relative;
-  z-index:2;                /* por encima del bloque de color */
-  white-space:nowrap;       /* evita que “Química” salte de línea */
+  z-index:2;
+  white-space:nowrap;
 }
-
-.title .grad {
-  color: #ffffff;              /* texto completamente blanco */
-  background: none;            /* sin fondo degradado */
-  -webkit-background-clip: initial;
-  -webkit-text-fill-color: initial;
-}
+.title .grad { color:#fff; background:none; -webkit-background-clip:initial; -webkit-text-fill-color:initial; }
 
   .cta{display:flex;gap:10px;flex-wrap:wrap}
   .btn{background:linear-gradient(90deg,#5BC0FF,#8C7CFF);color:white;border:none;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer}
@@ -77,7 +68,7 @@
   @keyframes toast{0%{opacity:0;transform:translateX(-50%) translateY(10px)}15%,85%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
   .hint{font-size:12px;color:#b6c4ff}
 
-  /* Docentes (tus estilos, intactos) */
+  /* Docentes */
   .overlay{position:fixed;inset:0;background:#0009;display:none;align-items:center;justify-content:center;padding:16px;z-index:40}
   .overlay.show{display:flex}
   .modal{width:min(980px,100%);max-height:90vh;overflow:auto}
@@ -93,8 +84,6 @@
   .tab.active{background:linear-gradient(90deg,#5BC0FF22,#8C7CFF22);border-color:#6d79ff}
   .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .cardLine{border:1px solid var(--line);border-radius:10px;padding:10px;background:#0f183f;display:flex;align-items:center;justify-content:space-between;gap:10px}
-
-  /* “Ver más” centrado dentro del panel de ranking */
   .loadmore{display:flex;justify-content:center;margin-top:12px}
   .btn.more{background:transparent;border:1px solid var(--line);color:#dce6ff}
 </style>
@@ -102,10 +91,10 @@
 <body>
   <div class="container">
     <header>
-        <div class="brand">
-    <div class="logo" aria-hidden="true"></div>
-    <h1 class="title">AR <span class="grad">Química</span></h1>
-  </div>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <h1 class="title">AR <span class="grad">Química</span></h1>
+      </div>
       <div class="cta">
         <a class="btn" id="linkApp" href="#" download>Descargar App</a>
         <a class="btn ghost" id="linkPDF" href="./Tarjetas.pdf" download="Tarjetas.pdf">Tarjetas (PDF)</a>
@@ -145,7 +134,7 @@
     </section>
   </div>
 
-  <!-- MODAL DOCENTES (sin cambios) -->
+  <!-- MODAL DOCENTES -->
   <div class="overlay" id="ovl">
     <div class="panel modal">
       <div class="row">
@@ -155,7 +144,7 @@
 
       <div id="lockRow" class="row" style="gap:8px;margin:12px 0">
         <input id="pin" class="input" style="min-width:140px" placeholder="PIN docente" type="password" />
-        <button id="btnUnlock" class="btn small">Desbloquear</button>
+        <button class="btn small" id="btnUnlock">Desbloquear</button>
       </div>
 
       <div id="adminBox" class="hidden">
@@ -181,6 +170,11 @@
                 <option value="2d">2 días</option><option value="3d">3 días</option><option value="custom">Elegir fecha/hora…</option>
               </select>
               <input id="customUntil" class="input hidden" type="datetime-local" />
+              <!-- NUEVO: Expirar otros -->
+              <label class="input" style="display:flex;gap:8px;align-items:center;width:200px">
+                <input id="expireOthers" type="checkbox" checked />
+                <span style="white-space:nowrap">Expirar otros</span>
+              </label>
             </div>
 
             <div class="combo-tools">
@@ -238,14 +232,39 @@ const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll
 const toast=m=>{const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200);};
 function escapeHtml(s){return (s??"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;");}
 
-/* ====== Desafíos (docentes) - ¡sin tocar! ====== */
+/* ====== Desafíos (docentes) - LocalStorage para UI ====== */
 const LS_CHALLENGES='arq.challenges.v2', LS_RESULTS='arq.results.v1';
 const ADMIN_PIN='1234';
-const COMBOS=[{id:'H2O',code:'H₂O',name:'Agua',color:'#66CCFF'},{id:'NaCl',code:'NaCl',name:'Sal de mesa',color:'#FFFFFF'},{id:'CO2',code:'CO₂',name:'Dióxido de carbono',color:'#AAAAAA'},{id:'NH3',code:'NH₃',name:'Amoníaco',color:'#99FFFF'},{id:'H2O2',code:'H₂O₂',name:'Peróxido de hidrógeno',color:'#BFE9FF'},{id:'KCl',code:'KCl',name:'Cloruro de potasio',color:'#FFF7CC'},{id:'MgO',code:'MgO',name:'Óxido de magnesio',color:'#DDDDDD'},{id:'CaCO3',code:'CaCO₃',name:'Carbonato de calcio',color:'#F2F2F2'},{id:'CuO',code:'CuO',name:'Óxido de cobre',color:'#006600'},{id:'ZnS',code:'ZnS',name:'Sulfuro de zinc',color:'#99FF99'}];
+const COMBOS=[
+  {id:'H2O',code:'H₂O',name:'Agua',color:'#66CCFF'},
+  {id:'NaCl',code:'NaCl',name:'Sal de mesa',color:'#FFFFFF'},
+  {id:'CO2',code:'CO₂',name:'Dióxido de carbono',color:'#AAAAAA'},
+  {id:'NH3',code:'NH₃',name:'Amoníaco',color:'#99FFFF'},
+  {id:'H2O2',code:'H₂O₂',name:'Peróxido de hidrógeno',color:'#BFE9FF'},
+  {id:'KCl',code:'KCl',name:'Cloruro de potasio',color:'#FFF7CC'},
+  {id:'MgO',code:'MgO',name:'Óxido de magnesio',color:'#DDDDDD'},
+  {id:'CaCO3',code:'CaCO₃',name:'Carbonato de calcio',color:'#F2F2F2'},
+  {id:'CuO',code:'CuO',name:'Óxido de cobre',color:'#006600'},
+  {id:'ZnS',code:'ZnS',name:'Sulfuro de zinc',color:'#99FF99'}
+];
 let challenges=load(LS_CHALLENGES,[]), results=load(LS_RESULTS,{});
 function load(k,def){try{return JSON.parse(localStorage.getItem(k))??def}catch{return def}}
 function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
 function humanUntil(ms){const s=Math.max(0,Math.floor((ms-Date.now())/1000));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60;return h>0?`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`:`${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`}
+
+/* ==== MAPA UI → fusion_id backend (ajusta si difieren) ==== */
+const FUSION_ID_MAP = {
+  H2O:'agua',
+  NaCl:'sal_de_mesa',
+  CO2:'dioxido_de_carbono',
+  NH3:'amoniaco',
+  H2O2:'peroxido_de_hidrogeno',
+  KCl:'cloruro_de_potasio',
+  MgO:'oxido_de_magnesio',
+  CaCO3:'carbonato_de_calcio',
+  CuO:'oxido_de_cobre',
+  ZnS:'sulfuro_de_zinc'
+};
 
 function renderActiveChallenges(){
   const root=$('#activeChallenges'); root.innerHTML='';
@@ -366,20 +385,141 @@ function renderComboList(){
 }
 function parseUntil(v){const now=Date.now(); if(v==='2d')return now+2*24*60*60*1000; if(v==='3d')return now+3*24*60*60*1000; if(v.endsWith('m'))return now+Number(v.replace('m',''))*60*1000; if(v.endsWith('h'))return now+Number(v.replace('h',''))*60*60*1000; return now+60*60*1000;}
 function randPick(arr,n){const a=[...arr],o=[];while(a.length&&o.length<n){o.push(a.splice(Math.random()*a.length|0,1)[0]);}return o;}
-function publishChallenge(){
-  const title=$('#dName').value.trim();
-  const points=Math.max(1,Number($('#pts').value||100));
-  const count=Math.max(1,Number($('#count').value||1));
-  let expiresAt; const dur=$('#dur').value;
-  if(dur==='custom'){const dt=$('#customUntil').value;if(!dt){toast('Elige fecha/hora');return;}expiresAt=new Date(dt).getTime();} else {expiresAt=parseUntil(dur);}
-  if(expiresAt<=Date.now()){toast('La expiración debe ser en el futuro');return;}
-  const checked=[...$('#comboList').querySelectorAll('input:checked')].map(i=>i.value);
-  if(!checked.length){toast('Selecciona al menos una combinación');return;}
-  const chosen=checked.length>count?randPick(checked,count):checked;
-  chosen.forEach(cid=>{const id=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());challenges.push({id,comboId:cid,points,expiresAt,title}); if(!results[id]) results[id]=[];});
-  save(LS_CHALLENGES,challenges); save(LS_RESULTS,results);
-  renderActiveChallenges(); renderChallengeList(); renderResultsIndex(); toast(`Desafío publicado (${chosen.length})`);
+
+/* ====== Ranking conectado al backend ====== */
+const API_BASE="https://ar-back.onrender.com";
+const rankStatus=document.getElementById("rankStatus");
+const tbody=document.getElementById("tbody");
+const loadMoreWrap=document.getElementById("loadMoreWrap");
+const btnMore=document.getElementById("btnMore");
+let topRows=[]; let currentLimit=20; let socket=null;
+
+function setRankStatus(msg){ if(rankStatus) rankStatus.textContent=msg; }
+
+function renderRanking(){
+  const rows=[...topRows].sort((a,b)=>b.score-a.score || a.name.localeCompare(b.name));
+  tbody.innerHTML='';
+  rows.forEach((r,i)=>{
+    const medal=i===0?'🥇 ': i===1?'🥈 ': i===2?'🥉 ':'';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="rank">${medal}${i+1}</td><td class="name">${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`;
+    tbody.appendChild(tr);
+  });
+  loadMoreWrap.classList.toggle('hidden', rows.length < currentLimit);
 }
+async function fetchTopHTTP(n){
+  const res=await fetch(`${API_BASE}/scores/top?n=${n}`,{cache:"no-store",mode:"cors"});
+  if(!res.ok) throw new Error(res.status+" "+res.statusText);
+  return res.json();
+}
+function startLiveSocket(){
+  try{
+    socket && socket.disconnect();
+    socket=io(API_BASE,{transports:["websocket"],withCredentials:false});
+    socket.on("connect",()=>setRankStatus("Conectado en vivo ✅"));
+    socket.on("disconnect",()=>setRankStatus("Desconectado, reconectando…"));
+    const ask=()=>socket.emit("get_top", currentLimit);
+    socket.on("connect", ask);
+    socket.on("top", rows=>{ topRows=rows||[]; renderRanking(); });
+    socket.on("top_updated", rows=>{ topRows=rows||[]; renderRanking(); });
+  }catch(e){ console.error(e); }
+}
+btnMore?.addEventListener('click', async ()=>{
+  currentLimit += 50;
+  try{
+    topRows = await fetchTopHTTP(currentLimit);
+    renderRanking();
+    socket?.emit("get_top", currentLimit);
+  }catch(e){ console.warn(e); }
+});
+
+/* ====== PUBLICAR DESAFÍO → BACKEND ====== */
+async function publishChallenge(){
+  try{
+    const title = ($('#dName').value || '').trim();
+    const points = Math.max(1, Number($('#pts').value || 100));
+    const count  = Math.max(1, Number($('#count').value || 1));
+
+    // calcular expiración
+    let expiresAtMs;
+    const dur = $('#dur').value;
+    if(dur === 'custom'){
+      const dt = $('#customUntil').value;
+      if(!dt){ toast('Elige fecha/hora'); return; }
+      expiresAtMs = new Date(dt).getTime();
+    } else {
+      expiresAtMs = parseUntil(dur);
+    }
+    if(expiresAtMs <= Date.now()){ toast('La expiración debe ser en el futuro'); return; }
+    const expires_at = new Date(expiresAtMs).toISOString();
+
+    // combos seleccionados (IDs de UI)
+    const checked = [...$('#comboList').querySelectorAll('input:checked')].map(i=>i.value);
+    if(!checked.length){ toast('Selecciona al menos una combinación'); return; }
+
+    // elegir hasta "count"
+    const chosenUI = checked.length > count ? randPick(checked, count) : checked;
+
+    // mapear a fusion_id backend
+    const fusion_ids = chosenUI.map(id => FUSION_ID_MAP[id]).filter(Boolean);
+    if(!fusion_ids.length){ toast('Las combinaciones seleccionadas no tienen mapeo en el backend'); return; }
+
+    // construir payload
+    const payload = {
+      name: title || 'Desafío',
+      points_per_combo: points,
+      required_count: count,
+      expires_at,
+      fusion_ids
+    };
+
+    // 1) crear reto en backend
+    const res = await fetch(`${API_BASE}/challenges`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const txt = await res.text();
+      throw new Error(`POST /challenges: ${res.status} ${txt}`);
+    }
+    const created = await res.json();
+    const challengeId = created?.id;
+
+    // 2) expirar otros (opcional)
+    const expire = $('#expireOthers')?.checked ?? true;
+    if(expire && challengeId){
+      try{
+        await fetch(`${API_BASE}/challenges/expire_others`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ keep_id: challengeId })
+        });
+      }catch(e){ console.warn('expire_others no disponible (ignorado).', e); }
+    }
+
+    // 3) reflejo local para que la tarjeta se vea ya
+    const uiId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random());
+    challenges.push({
+      id: uiId,
+      comboId: chosenUI[0],  // mostramos la primera en la tarjeta
+      points,
+      expiresAt: expiresAtMs,
+      title
+    });
+    save(LS_CHALLENGES, challenges);
+    renderActiveChallenges();
+    renderChallengeList();
+    renderResultsIndex();
+
+    toast('Desafío publicado en el servidor');
+  }catch(err){
+    console.error(err);
+    toast('Error publicando: ' + err.message);
+  }
+}
+
+/* ====== Inicialización ====== */
 const ovl=$('#ovl');
 $('#btnDocentes').onclick=()=>{ ovl.classList.add('show'); $('#pin').value=''; $('#adminBox').classList.add('hidden'); };
 $('#closeOvl').onclick=()=>ovl.classList.remove('show');
@@ -395,7 +535,9 @@ $('#btnClearAll').addEventListener('click',()=>{ if(confirm('¿Vaciar resultados
 $('#comboSearch')?.addEventListener('input',renderComboList);
 $('#tabCreate').onclick=()=>openAdminTab('create');
 $('#tabResults').onclick=()=>openAdminTab('results');
+
 renderActiveChallenges(); renderChallengeList(); renderComboList(); renderResultsIndex();
+
 function ensureDemoResults(){
   challenges.forEach(c=>{
     if(!results[c.id] || !results[c.id].length){
@@ -406,60 +548,7 @@ function ensureDemoResults(){
   save(LS_RESULTS,results);
 }
 
-/* ====== Ranking conectado al backend ====== */
-const API_BASE="https://ar-back.onrender.com";
-const rankStatus=document.getElementById("rankStatus");
-const tbody=document.getElementById("tbody");
-const loadMoreWrap=document.getElementById("loadMoreWrap");
-const btnMore=document.getElementById("btnMore");
-let topRows=[];           // filas actuales
-let currentLimit=20;      // empieza en 20
-let socket=null;
-
-function setRankStatus(msg){ if(rankStatus) rankStatus.textContent=msg; }
-
-function renderRanking(){
-  const rows=[...topRows].sort((a,b)=>b.score-a.score || a.name.localeCompare(b.name));
-  tbody.innerHTML='';
-  rows.forEach((r,i)=>{
-    const medal=i===0?'🥇 ': i===1?'🥈 ': i===2?'🥉 ':'';
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td class="rank">${medal}${i+1}</td><td class="name">${escapeHtml(r.name)}</td><td class="score">${r.score}</td>`;
-    tbody.appendChild(tr);
-  });
-  // mostrar/ocultar “ver más”
-  loadMoreWrap.classList.toggle('hidden', rows.length < currentLimit);
-}
-
-async function fetchTopHTTP(n){
-  const res=await fetch(`${API_BASE}/scores/top?n=${n}`,{cache:"no-store",mode:"cors"});
-  if(!res.ok) throw new Error(res.status+" "+res.statusText);
-  return res.json();
-}
-
-function startLiveSocket(){
-  try{
-    socket && socket.disconnect();
-    socket=io(API_BASE,{transports:["websocket"],withCredentials:false});
-    socket.on("connect",()=>setRankStatus("Conectado en vivo ✅"));
-    socket.on("disconnect",()=>setRankStatus("Desconectado, reconectando…"));
-    const ask=()=>socket.emit("get_top", currentLimit);
-    socket.on("connect", ask);
-    socket.on("top", rows=>{ topRows=rows||[]; renderRanking(); });
-    socket.on("top_updated", rows=>{ topRows=rows||[]; renderRanking(); });
-  }catch(e){ console.error(e); }
-}
-
-btnMore?.addEventListener('click', async ()=>{
-  currentLimit += 50;
-  try{
-    topRows = await fetchTopHTTP(currentLimit);
-    renderRanking();
-    socket?.emit("get_top", currentLimit); // que el socket siga el nuevo límite
-  }catch(e){ console.warn(e); }
-});
-
-// Inicializa
+/* ====== Ranking live ====== */
 (async ()=>{
   try{
     setRankStatus("Cargando top…");
