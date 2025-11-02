@@ -91,7 +91,7 @@
       <div id="activeChallenges" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:10px"></div>
     </section>
 
-    <!-- Ranking (NO TOCADO) -->
+    <!-- Ranking -->
     <section class="panel">
       <div class="lb-head">
         <div>
@@ -171,14 +171,12 @@
             </div>
 
             <h3 style="margin:10px 0 6px">Administrar desafíos publicados</h3>
-            <!-- Lista traída del backend -->
             <div class="row" style="margin-bottom:8px">
               <div class="hint">Se consultan del servidor</div>
               <button id="btnRefreshChallenges" class="btn small ghost">Refrescar</button>
             </div>
             <div id="serverChallengeList" style="display:grid;grid-template-columns:1fr;gap:8px"></div>
 
-            <!-- Detalle (abre al seleccionar) -->
             <div id="serverChallengeDetail" class="hidden" style="margin-top:12px">
               <button id="btnCloseDetail" class="btn small ghost" style="margin-bottom:8px">← Volver</button>
               <div id="detailHeader" class="panel" style="margin:0 0 10px"></div>
@@ -285,10 +283,9 @@ const EP = {
 };
 
 /* ===== Helpers de admin (evita 401) ===== */
+let ADMIN_PIN_VALUE = "";
 function adminHeaders(extra={}) {
-  // toma el PIN desde el input del modal
-  const pin = ($('#pin')?.value||'').trim();
-  return { 'Content-Type':'application/json', 'X-Admin-Pin': pin, ...extra };
+  return { 'Content-Type':'application/json', 'X-Admin-Pin': ADMIN_PIN_VALUE, ...extra };
 }
 
 /* ========= Portada: render de tarjetas locales ========= */
@@ -349,6 +346,8 @@ function parseUntilVal(v){
 $('#btnAddChallenge')?.addEventListener('click', publishChallenge);
 async function publishChallenge(){
   try{
+    if(!ADMIN_PIN_VALUE){ toast('Debes desbloquear con PIN antes de publicar'); return; }
+
     const title = ($('#dName').value||'').trim();
     const points= Math.max(1,Number($('#pts').value||100));
     const count = Math.max(1,Number($('#count').value||1));
@@ -379,10 +378,12 @@ async function publishChallenge(){
 
     const keepId = created?.id;
     if(($('#expireOthers')?.checked ?? true) && keepId){
-      try{ await httpJson(EP.expireOthers,{method:'POST',headers:adminHeaders(),body:JSON.stringify({keep_id:keepId})}); }catch(e){ console.warn('expire_others:',e); }
+      try{
+        await httpJson(EP.expireOthers,{method:'POST',headers:adminHeaders(),body:JSON.stringify({keep_id:keepId})});
+      }catch(e){ console.warn('expire_others:',e); }
     }
 
-    // Reflejo rápido en portada
+    // Reflejo rápido en portada (UI local)
     const uiId = (crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
     challenges.push({id:uiId,comboId:chosenUI[0],points,expiresAt:expiresAtMs,title});
     save(LS_CHALLENGES,challenges);
@@ -544,7 +545,7 @@ function openResultsDetail(chId){
   $('#btnBackResults').onclick=()=>{ $('#resultDetail').classList.add('hidden'); $('#resultsIndex').classList.remove('hidden'); };
 }
 
-/* ========= Ranking live (NO TOCADO) ========= */
+/* ========= Ranking live ========= */
 const rankStatus=document.getElementById("rankStatus");
 const tbody=document.getElementById("tbody");
 const loadMoreWrap=document.getElementById("loadMoreWrap");
@@ -593,30 +594,48 @@ btnMore?.addEventListener('click', async ()=>{
 function renderComboListInit(){ renderComboList(); }
 function renderActiveInit(){ renderActiveChallenges(); }
 function resultsLocalInit(){ renderResultsIndex(); }
-(async ()=>{
+(function init(){
   renderComboListInit();
   renderActiveInit();
   resultsLocalInit();
-  try{
-    setRankStatus("Cargando top…");
-    topRows = await fetchTopHTTP(currentLimit);
-    renderRanking();
-    setRankStatus("Conectando en vivo…");
-  }catch(e){ setRankStatus("No se pudo cargar: "+e.message); }
-  startLiveSocket();
-  loadServerChallenges();
+  (async ()=>{
+    try{
+      setRankStatus("Cargando top…");
+      topRows = await fetchTopHTTP(currentLimit);
+      renderRanking();
+      setRankStatus("Conectando en vivo…");
+    }catch(e){ setRankStatus("No se pudo cargar: "+e.message); }
+    startLiveSocket();
+    loadServerChallenges();
+  })();
 })();
 
 /* ========= Login admin modal ========= */
 const ovl=$('#ovl');
 $('#btnDocentes').onclick=()=>{ ovl.classList.add('show'); $('#pin').value=''; $('#adminBox').classList.add('hidden'); };
 $('#closeOvl').onclick=()=>ovl.classList.remove('show');
+
 const ADMIN_PIN='1234';
-$('#btnUnlock').onclick=()=>{ const ok=(($('#pin').value)||'')===ADMIN_PIN;
-  $('#adminBox').classList.toggle('hidden',!ok);
-  if(ok){ toast('Modo docente activado'); loadServerChallenges(); }
-  else toast('PIN incorrecto');
+$('#btnUnlock').onclick=()=>{
+  const entered = ($('#pin').value)||'';
+  const ok = (entered === ADMIN_PIN);
+  if(ok){
+    ADMIN_PIN_VALUE = entered;             // ✅ guardamos el PIN para headers
+    $('#adminBox').classList.remove('hidden');
+    toast('Modo docente activado');
+    loadServerChallenges();
+  }else{
+    ADMIN_PIN_VALUE = "";
+    $('#adminBox').classList.add('hidden');
+    toast('PIN incorrecto');
+  }
 };
+
+/* Mostrar/ocultar fecha custom */
+$('#dur')?.addEventListener('change', ()=>{
+  const show = $('#dur').value === 'custom';
+  $('#customUntil').classList.toggle('hidden', !show);
+});
   </script>
 </body>
 </html>
