@@ -229,25 +229,78 @@ function load(k,def){try{return JSON.parse(localStorage.getItem(k))??def}catch{r
 function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
 
 /* Combinaciones */
-const COMBOS=[
-  {id:'H2O',code:'H₂O',name:'Agua',color:'#66CCFF'},
-  {id:'NaCl',code:'NaCl',name:'Sal de mesa',color:'#FFFFFF'},
-  {id:'CO2',code:'CO₂',name:'Dióxido de carbono',color:'#AAAAAA'},
-  {id:'NH3',code:'NH₃',name:'Amoníaco',color:'#99FFFF'},
-  {id:'H2O2',code:'H₂O₂',name:'Peróxido de hidrógeno',color:'#BFE9FF'},
-  {id:'KCl',code:'KCl',name:'Cloruro de potasio',color:'#FFF7CC'},
-  {id:'MgO',code:'MgO',name:'Óxido de magnesio',color:'#DDDDDD'},
-  {id:'CaCO3',code:'CaCO₃',name:'Carbonato de calcio',color:'#F2F2F2'},
-  {id:'CuO',code:'CuO',name:'Óxido de cobre',color:'#006600'},
-  {id:'ZnS',code:'ZnS',name:'Sulfuro de zinc',color:'#99FF99'}
+const COMBOS = [
+  { id:'H2O',   code:'H₂O',   name:'Agua',                         color:'#66CCFF' },
+  { id:'NaCl',  code:'NaCl',  name:'Sal de mesa',                  color:'#FFFFFF' },
+  { id:'CO2',   code:'CO₂',   name:'Dióxido de carbono',           color:'#AAAAAA' },
+  { id:'NH3',   code:'NH₃',   name:'Amoníaco',                     color:'#99FFFF' },
+  { id:'H2O2',  code:'H₂O₂',  name:'Peróxido de hidrógeno',        color:'#BFE9FF' },
+  { id:'KCl',   code:'KCl',   name:'Cloruro de potasio',           color:'#FFF7CC' },
+  { id:'MgO',   code:'MgO',   name:'Óxido de magnesio',            color:'#DDDDDD' },
+  { id:'CaCO3', code:'CaCO₃', name:'Carbonato de calcio',          color:'#F2F2F2' },
+  { id:'CuO',   code:'CuO',   name:'Óxido de cobre',               color:'#006600' },
+  { id:'ZnS',   code:'ZnS',   name:'Sulfuro de zinc',              color:'#99FF99' },
+
+  { id:'CO',    code:'CO',    name:'Monóxido de carbono',          color:'#CCCCCC' },
+  { id:'SO2',   code:'SO₂',   name:'Dióxido de azufre',            color:'#FFD966' },
+  { id:'SO3',   code:'SO₃',   name:'Trióxido de azufre',           color:'#FFCC66' },
+  { id:'NaOH',  code:'NaOH',  name:'Hidróxido de sodio',           color:'#DDFFFF' },
+  { id:'KOH',   code:'KOH',   name:'Hidróxido de potasio',         color:'#CCFFFF' },
+  { id:'HCl',   code:'HCl',   name:'Ácido clorhídrico',            color:'#FFCCCC' },
+  { id:'HBr',   code:'HBr',   name:'Ácido bromhídrico',            color:'#FFDDDD' },
+  { id:'HI',    code:'HI',    name:'Ácido yodhídrico',             color:'#FFE5E5' },
+  { id:'H2SO4', code:'H₂SO₄', name:'Ácido sulfúrico',              color:'#FFF0E5' },
+  { id:'HNO3',  code:'HNO₃',  name:'Ácido nítrico',                color:'#FFE5CC' },
+
+  { id:'Na2CO3', code:'Na₂CO₃', name:'Carbonato de sodio',         color:'#E8F8FF' },
+  { id:'K2CO3',  code:'K₂CO₃',  name:'Carbonato de potasio',       color:'#E0F4FF' },
+  { id:'CaO',    code:'CaO',    name:'Óxido de calcio',            color:'#F8F8F8' },
+  { id:'FeO',    code:'FeO',    name:'Óxido ferroso',              color:'#999999' },
+  { id:'Fe2O3',  code:'Fe₂O₃',  name:'Óxido férrico',              color:'#884444' },
+  { id:'CuCl2',  code:'CuCl₂',  name:'Cloruro cúprico',            color:'#55AA99' },
+  { id:'NaClO',  code:'NaClO',  name:'Hipoclorito de sodio',       color:'#CCFFDD' },
+  { id:'KBr',    code:'KBr',    name:'Bromuro de potasio',         color:'#FFEEDD' },
+  { id:'AgCl',   code:'AgCl',   name:'Cloruro de plata',           color:'#F2F2F2' },
+  { id:'ZnCl2',  code:'ZnCl₂',  name:'Cloruro de zinc',            color:'#E6F2FF' },
 ];
 
+
 /* UI → fusion_id */
-const FUSION_ID_MAP={
-  H2O:'agua', NaCl:'sal_de_mesa', CO2:'dioxido_de_carbono', NH3:'amoniaco',
-  H2O2:'peroxido_de_hidrogeno', KCl:'cloruro_de_potasio', MgO:'oxido_de_magnesio',
-  CaCO3:'carbonato_de_calcio', CuO:'oxido_de_cobre', ZnS:'sulfuro_de_zinc'
+const FUSION_ID_MAP = {
+  H2O:    'agua',
+  NaCl:   'sal_de_mesa',
+  CO2:    'dioxido_de_carbono',
+  NH3:    'amoniaco',
+  H2O2:   'peroxido_de_hidrogeno',
+  KCl:    'cloruro_de_potasio',
+  MgO:    'oxido_de_magnesio',
+  CaCO3:  'carbonato_de_calcio',
+  CuO:    'oxido_de_cobre',
+  ZnS:    'sulfuro_de_zinc',
+
+  CO:     'monoxido_de_carbono',
+  SO2:    'dioxido_de_azufre',
+  SO3:    'trioxido_de_azufre',
+  NaOH:   'hidroxido_de_sodio',
+  KOH:    'hidroxido_de_potasio',
+  HCl:    'acido_clorhidrico',
+  HBr:    'acido_bromhidrico',
+  HI:     'acido_yodhídrico',
+  H2SO4:  'acido_sulfurico',
+  HNO3:   'acido_nitrico',
+
+  Na2CO3: 'carbonato_de_sodio',
+  K2CO3:  'carbonato_de_potasio',
+  CaO:    'oxido_de_calcio',
+  FeO:    'oxido_ferroso',
+  Fe2O3:  'oxido_ferrico',
+  CuCl2:  'cloruro_cuprico',
+  NaClO:  'hipoclorito_de_sodio',
+  KBr:    'bromuro_de_potasio',
+  AgCl:   'cloruro_de_plata',
+  ZnCl2:  'cloruro_de_zinc',
 };
+
 
 /* ========= Endpoints ========= */
 const API_BASE="https://ar-back.onrender.com";
