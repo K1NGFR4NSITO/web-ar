@@ -1042,7 +1042,7 @@ async function loadUsers() {
     LAST_USERS = users;
 
     box.innerHTML = `
-      <table class="users-table" style="width:100%">
+      <table class="users-table" style="width: 100%">
         <thead>
           <tr>
             <th>Nombre</th>
@@ -1067,7 +1067,7 @@ async function loadUsers() {
                 <button class="btn small ghost" data-edit-user="${u.id}">
                   Editar
                 </button>
-                <button class="btn small ghost" data-delete-user="${u.id}">
+                <button class="btn small danger" data-delete-user="${u.id}">
                   Eliminar
                 </button>
               </td>
@@ -1077,24 +1077,27 @@ async function loadUsers() {
       </table>
     `;
 
-    // Eventos
+    // BOTONES: activar/desactivar
     box.querySelectorAll('[data-toggle-user]').forEach(btn => {
       btn.onclick = () => toggleUserActive(btn.dataset.toggleUser);
     });
 
+    // BOTONES: editar usuario
     box.querySelectorAll('[data-edit-user]').forEach(btn => {
       btn.onclick = () => editUser(btn.dataset.editUser);
     });
 
+    // BOTONES: borrar usuario
     box.querySelectorAll('[data-delete-user]').forEach(btn => {
       btn.onclick = () => deleteUser(btn.dataset.deleteUser);
     });
 
   } catch (e) {
-    console.error(e);
+    console.error("loadUsers error:", e);
     box.innerHTML = '<div class="hint">Error al cargar usuarios.</div>';
   }
 }
+
 
 
 
