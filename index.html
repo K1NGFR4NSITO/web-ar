@@ -566,7 +566,11 @@ function parseUntilVal(v){
 $('#btnAddChallenge')?.addEventListener('click', publishChallenge);
 async function publishChallenge(){
   try{
-    if(!ADMIN_PIN_VALUE){ toast('Debes desbloquear con PIN antes de publicar'); return; }
+    // ✅ Nueva validación: login obligatorio
+    if (!CURRENT_USER) {
+      toast('Debes iniciar sesión como docente antes de publicar');
+      return;
+    }
 
     const title=($('#dName').value||'').trim();
     const points=Math.max(1,Number($('#pts').value||100));
@@ -583,7 +587,6 @@ async function publishChallenge(){
     }
     if(expiresAtMs<=Date.now()){ toast('La expiración debe ser en el futuro'); return; }
 
-    // >>> CLAVE: convertir a minutos para el backend
     const duration_minutes = Math.max(1, Math.ceil((expiresAtMs - Date.now())/60000));
 
     const checked=[...$('#comboList').querySelectorAll('input:checked')].map(i=>i.value);
@@ -599,7 +602,7 @@ async function publishChallenge(){
         name:title||'Desafío',
         points_per_combo:points,
         required_count:count,
-        duration_minutes,          // <<< enviado al server
+        duration_minutes,
         fusion_ids
       })
     });
@@ -615,7 +618,6 @@ async function publishChallenge(){
       }catch(e){ console.warn('expire_others:',e); }
     }
 
-    // UI local para ver activo al instante
     const uiId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
     challenges.push({id:uiId,comboId:chosenUI[0],points,expiresAt:expiresAtMs,title});
     save(LS_CHALLENGES,challenges);
@@ -625,6 +627,7 @@ async function publishChallenge(){
     toast('Desafío publicado');
   }catch(e){ console.error(e); toast('Error publicando: '+e.message); }
 }
+
 function randPick(arr,n){const a=[...arr],o=[];while(a.length&&o.length<n){o.push(a.splice(Math.random()*a.length|0,1)[0]);}return o;}
 
 /* Cargar lista servidor */
