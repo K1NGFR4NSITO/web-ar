@@ -111,10 +111,13 @@
         <button class="btn small ghost" id="closeOvl">Cerrar</button>
       </div>
 
-      <div id="lockRow" class="row" style="gap:8px;margin:12px 0">
-        <input id="pin" class="input" style="min-width:140px" placeholder="PIN docente" type="password" />
-        <button class="btn small" id="btnUnlock">Desbloquear</button>
+      <div id="lockRow" class="row" style="gap:8px;margin:12px 0;flex-wrap:wrap">
+        <input id="loginUser" class="input" style="min-width:140px" placeholder="Usuario" autocomplete="username" />
+        <input id="loginPass" class="input" style="min-width:140px" placeholder="Contraseña" type="password" autocomplete="current-password" />
+        <button class="btn small" id="btnUnlock">Iniciar sesión</button>
       </div>
+      <div id="whoLine" class="hint hidden"></div>
+
 
       <div id="adminBox" class="hidden">
         <div class="tabs">
@@ -203,6 +206,33 @@
                   <tbody id="tbodyResults"></tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </div>
+        <!-- Gestión de docentes (solo admin) -->
+        <div id="usersSection" class="hidden">
+          <h3 style="margin-top:16px">Gestión de docentes</h3>
+          <p class="hint">Solo para el administrador: crear usuarios y activar/desactivar docentes.</p>
+
+          <div class="panel" style="margin-top:8px">
+            <div class="row" style="margin-bottom:8px">
+              <strong>Nuevo docente</strong>
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:wrap">
+              <input id="newTeacherName" class="input" placeholder="Nombre completo" style="flex:1 1 160px" />
+              <input id="newTeacherUser" class="input" placeholder="Usuario" style="flex:1 1 120px" />
+              <input id="newTeacherPass" class="input" placeholder="Contraseña" type="password" style="flex:1 1 120px" />
+              <button id="btnCreateTeacher" class="btn small">Crear</button>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:10px">
+            <div class="row" style="margin-bottom:8px">
+              <strong>Usuarios registrados</strong>
+              <button id="btnReloadUsers" class="btn small ghost">Refrescar</button>
+            </div>
+            <div id="usersList" class="tablewrap" style="max-height:40vh">
+              <!-- usuarios -->
             </div>
           </div>
         </div>
@@ -467,7 +497,8 @@ const EP={
 
 /* ===== Auth para admin (BEARER) ===== */
 const ADMIN_TOKEN_CLIENT = 'changeme'; // <-- igual que ADMIN_TOKEN en Render
-let ADMIN_PIN_VALUE = "";               // solo para desbloquear la UI
+let CURRENT_USER = null;
+let IS_ADMIN = false;             // solo para desbloquear la UI
 
 function adminHeaders(extra={}) {
   return {
@@ -810,31 +841,203 @@ function resultsLocalInit(){ renderResultsIndex(); }
 })();
 
 /* ========= Login admin modal ========= */
-const ovl=$('#ovl');
-$('#btnDocentes').onclick=()=>{ ovl.classList.add('show'); $('#pin').value=''; $('#adminBox').classList.add('hidden'); };
-$('#closeOvl').onclick=()=>ovl.classList.remove('show');
+/* ========= Login admin modal ========= */
+const ovl = $('#ovl');
 
-const ADMIN_PIN='1234';
-$('#btnUnlock').onclick=()=>{
-  const entered = ($('#pin').value)||'';
-  const ok = (entered === ADMIN_PIN);
-  if(ok){
-    ADMIN_PIN_VALUE = entered;             // solo para UI
+$('#btnDocentes').onclick = () => {
+  ovl.classList.add('show');
+  $('#loginUser').value = '';
+  $('#loginPass').value = '';
+  $('#adminBox').classList.add('hidden');
+  $('#usersSection')?.classList.add('hidden');
+  $('#whoLine')?.classList.add('hidden');
+};
+
+$('#closeOvl').onclick = () => ovl.classList.remove('show');
+
+$('#btnUnlock').onclick = async () => {
+  const username = ($('#loginUser').value || '').trim();
+  const password = ($('#loginPass').value || '').trim();
+
+  if (!username || !password) {
+    toast('Ingresa usuario y contraseña');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      toast(data?.error || 'No se pudo iniciar sesión');
+      CURRENT_USER = null;
+      IS_ADMIN = false;
+      $('#adminBox').classList.add('hidden');
+      $('#usersSection')?.classList.add('hidden');
+      return;
+    }
+
+    CURRENT_USER = data.user;
+    IS_ADMIN = !!data.is_admin;
+
     $('#adminBox').classList.remove('hidden');
-    toast('Modo docente activado');
+
+    const who = $('#whoLine');
+    if (who) {
+      const labelRole = IS_ADMIN ? 'administrador' : (CURRENT_USER.role || 'docente');
+      who.textContent = `Sesión iniciada como ${CURRENT_USER.name || CURRENT_USER.username} (${labelRole})`;
+      who.classList.remove('hidden');
+    }
+
+    // Si es admin, mostrar sección de docentes y cargar lista
+    if (IS_ADMIN) {
+      $('#usersSection')?.classList.remove('hidden');
+      loadUsers();
+      toast('Modo administrador activado');
+    } else {
+      $('#usersSection')?.classList.add('hidden');
+      toast('Modo docente activado');
+    }
+
+    // Ya logueado: cargamos desafíos desde el servidor
     loadServerChallenges();
-  }else{
-    ADMIN_PIN_VALUE = "";
-    $('#adminBox').classList.add('hidden');
-    toast('PIN incorrecto');
+
+  } catch (e) {
+    console.error(e);
+    toast('Error de red al iniciar sesión');
   }
 };
+
 
 /* Mostrar/ocultar fecha custom */
 $('#dur')?.addEventListener('change', ()=>{
   const show = $('#dur').value === 'custom';
   $('#customUntil').classList.toggle('hidden', !show);
 });
+/* ========= Gestión de usuarios (solo admin) ========= */
+
+async function loadUsers() {
+  const box = $('#usersList');
+  if (!box || !IS_ADMIN) return;
+
+  box.innerHTML = '<div class="hint">Cargando usuarios…</div>';
+
+  try {
+    const res = await fetch(`${API_BASE}/users`, {
+      headers: adminHeaders()
+    });
+    const users = await res.json().catch(() => []);
+
+    if (!Array.isArray(users) || !users.length) {
+      box.innerHTML = '<div class="hint">No hay usuarios registrados.</div>';
+      return;
+    }
+
+    box.innerHTML = `
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:6px 8px">Nombre</th>
+            <th style="text-align:left;padding:6px 8px">Usuario</th>
+            <th style="text-align:left;padding:6px 8px">Rol</th>
+            <th style="text-align:left;padding:6px 8px">Activo</th>
+            <th style="text-align:left;padding:6px 8px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${users.map(u => `
+            <tr>
+              <td style="padding:6px 8px">${escapeHtml(u.name || '-')}</td>
+              <td style="padding:6px 8px">${escapeHtml(u.username || '-')}</td>
+              <td style="padding:6px 8px">${escapeHtml(u.role || '-')}</td>
+              <td style="padding:6px 8px">${u.active ? '✅' : '❌'}</td>
+              <td style="padding:6px 8px">
+                <button class="btn small ghost" data-toggle-user="${u.id}">
+                  ${u.active ? 'Desactivar' : 'Activar'}
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    box.querySelectorAll('[data-toggle-user]').forEach(btn => {
+      btn.onclick = () => toggleUserActive(btn.dataset.toggleUser);
+    });
+
+  } catch (e) {
+    console.error(e);
+    box.innerHTML = '<div class="hint">Error al cargar usuarios.</div>';
+  }
+}
+
+async function toggleUserActive(id) {
+  if (!IS_ADMIN) return;
+  try {
+    await fetch(`${API_BASE}/users/${id}`, {
+      method: 'PATCH',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ toggleActive: true })
+    });
+    toast('Usuario actualizado');
+    loadUsers();
+  } catch (e) {
+    console.error(e);
+    toast('No se pudo actualizar el usuario');
+  }
+}
+
+$('#btnReloadUsers')?.addEventListener('click', () => {
+  if (IS_ADMIN) loadUsers();
+});
+
+$('#btnCreateTeacher')?.addEventListener('click', async () => {
+  if (!IS_ADMIN) {
+    toast('Solo el administrador puede crear usuarios');
+    return;
+  }
+
+  const name = ($('#newTeacherName').value || '').trim();
+  const username = ($('#newTeacherUser').value || '').trim();
+  const password = ($('#newTeacherPass').value || '').trim();
+
+  if (!name || !username || !password) {
+    toast('Completa nombre, usuario y contraseña');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: adminHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ name, username, password, role: 'docente' })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      toast(data?.error || 'No se pudo crear el docente');
+      return;
+    }
+
+    $('#newTeacherName').value = '';
+    $('#newTeacherUser').value = '';
+    $('#newTeacherPass').value = '';
+
+    toast('Docente creado correctamente');
+    loadUsers();
+
+  } catch (e) {
+    console.error(e);
+    toast('Error de red al crear docente');
+  }
+});
+
   </script>
 </body>
 </html>
