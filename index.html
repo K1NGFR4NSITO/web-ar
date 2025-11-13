@@ -1028,7 +1028,8 @@ $('#toggleNewTeacherPass')?.addEventListener('click', () => {
 
 async function loadUsers() {
   if (!IS_ADMIN) return;
-  const box = $('#usersSection');
+
+  const box = $('#usersList');
   if (!box) return;
 
   box.innerHTML = '<div class="hint">Cargando usuarios...</div>';
@@ -1038,16 +1039,10 @@ async function loadUsers() {
       headers: adminHeaders()
     });
 
-    // 👉 Guardamos la lista para usarla en editUser()
     LAST_USERS = users;
 
     box.innerHTML = `
-      <div class="section-title">
-        <span>Usuarios registrados</span>
-        <button class="btn small ghost" id="btnRefreshUsers">Refrescar</button>
-      </div>
-
-      <table class="table users-table">
+      <table class="users-table" style="width:100%">
         <thead>
           <tr>
             <th>Nombre</th>
@@ -1064,12 +1059,11 @@ async function loadUsers() {
               <td>${escapeHtml(u.username || '')}</td>
               <td>${escapeHtml(u.role || '')}</td>
               <td>
-                <button class="toggle-pill ${u.active ? 'on' : 'off'}"
-                        data-toggle-user="${u.id}">
-                  ${u.active ? '✅' : '❌'}
+                <button class="btn small ghost" data-toggle-user="${u.id}">
+                  ${u.active ? 'Desactivar' : 'Activar'}
                 </button>
               </td>
-              <td class="actions">
+              <td>
                 <button class="btn small ghost" data-edit-user="${u.id}">
                   Editar
                 </button>
@@ -1083,8 +1077,7 @@ async function loadUsers() {
       </table>
     `;
 
-    $('#btnRefreshUsers')?.addEventListener('click', loadUsers);
-
+    // Eventos
     box.querySelectorAll('[data-toggle-user]').forEach(btn => {
       btn.onclick = () => toggleUserActive(btn.dataset.toggleUser);
     });
