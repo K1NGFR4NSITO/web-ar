@@ -1027,70 +1027,72 @@ $('#toggleNewTeacherPass')?.addEventListener('click', () => {
 /* ========= Gestión de usuarios (solo admin) ========= */
 
 async function loadUsers() {
-  const box = $('#usersList');
-  if (!box || !IS_ADMIN) return;
+  if (!IS_ADMIN) return;
+  const box = $('#usersSection');
+  if (!box) return;
 
-  box.innerHTML = '<div class="hint">Cargando usuarios…</div>';
+  box.innerHTML = '<div class="hint">Cargando usuarios...</div>';
 
   try {
-    const res = await fetch(`${API_BASE}/users`, {
+    const users = await httpJson(EP.users, {
       headers: adminHeaders()
     });
-    const users = await res.json().catch(() => []);
 
-    if (!Array.isArray(users) || !users.length) {
-      box.innerHTML = '<div class="hint">No hay usuarios registrados.</div>';
-      return;
-    }
+    // 👉 Guardamos la lista para usarla en editUser()
+    LAST_USERS = users;
 
- // <-- guarda la lista para usarla luego
+    box.innerHTML = `
+      <div class="section-title">
+        <span>Usuarios registrados</span>
+        <button class="btn small ghost" id="btnRefreshUsers">Refrescar</button>
+      </div>
 
-box.innerHTML = `
-  <table style="width:100%;border-collapse:collapse">
-    <thead>
-      <tr>
-        <th style="text-align:left;padding:6px 8px">Nombre</th>
-        <th style="text-align:left;padding:6px 8px">Usuario</th>
-        <th style="text-align:left;padding:6px 8px">Rol</th>
-        <th style="text-align:left;padding:6px 8px">Activo</th>
-        <th style="text-align:left;padding:6px 8px">Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${users.map(u => `
-        <tr>
-          <td style="padding:6px 8px">${escapeHtml(u.name || '-')}</td>
-          <td style="padding:6px 8px">${escapeHtml(u.username || '-')}</td>
-          <td style="padding:6px 8px">${escapeHtml(u.role || '-')}</td>
-          <td style="padding:6px 8px">${u.active ? '✅' : '❌'}</td>
-          <td style="padding:6px 8px; display:flex; gap:6px; flex-wrap:wrap">
-            <button class="btn small ghost" data-toggle-user="${u.id}">
-              ${u.active ? 'Desactivar' : 'Activar'}
-            </button>
-            <button class="btn small" data-edit-user="${u.id}">
-              Editar
-            </button>
-            <button class="btn small ghost" data-delete-user="${u.id}">
-              Eliminar
-            </button>
-          </td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
-`;
+      <table class="table users-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Activo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${users.map(u => `
+            <tr>
+              <td>${escapeHtml(u.name || '')}</td>
+              <td>${escapeHtml(u.username || '')}</td>
+              <td>${escapeHtml(u.role || '')}</td>
+              <td>
+                <button class="toggle-pill ${u.active ? 'on' : 'off'}"
+                        data-toggle-user="${u.id}">
+                  ${u.active ? '✅' : '❌'}
+                </button>
+              </td>
+              <td class="actions">
+                <button class="btn small ghost" data-edit-user="${u.id}">
+                  Editar
+                </button>
+                <button class="btn small ghost" data-delete-user="${u.id}">
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
 
+    $('#btnRefreshUsers')?.addEventListener('click', loadUsers);
 
     box.querySelectorAll('[data-toggle-user]').forEach(btn => {
       btn.onclick = () => toggleUserActive(btn.dataset.toggleUser);
     });
 
-    // Botones de editar usuario
     box.querySelectorAll('[data-edit-user]').forEach(btn => {
       btn.onclick = () => editUser(btn.dataset.editUser);
     });
 
-    // Botones de eliminar usuario
     box.querySelectorAll('[data-delete-user]').forEach(btn => {
       btn.onclick = () => deleteUser(btn.dataset.deleteUser);
     });
@@ -1100,6 +1102,7 @@ box.innerHTML = `
     box.innerHTML = '<div class="hint">Error al cargar usuarios.</div>';
   }
 }
+
 
 
 async function toggleUserActive(id) {
