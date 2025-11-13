@@ -518,14 +518,12 @@ const EP={
   resultsPreferred:id=>`${API_BASE}/challenges/${id}/results`,
   resultsAlt1:id=>`${API_BASE}/scores/by_challenge/${id}`,
   resultsAlt2:id=>`${API_BASE}/scores/by_challenge?challenge_id=${id}`
-  users: `${API_BASE}/users`,
 };
 
 /* ===== Auth para admin (BEARER) ===== */
 const ADMIN_TOKEN_CLIENT = 'changeme'; // <-- igual que ADMIN_TOKEN en Render
 let CURRENT_USER = null;
 let IS_ADMIN = false;             // solo para desbloquear la UI
-let LAST_USERS = [];
 
 function adminHeaders(extra={}) {
   return {
@@ -1028,48 +1026,43 @@ $('#toggleNewTeacherPass')?.addEventListener('click', () => {
 /* ========= Gestión de usuarios (solo admin) ========= */
 
 async function loadUsers() {
-  if (!IS_ADMIN) return;
-
   const box = $('#usersList');
-  if (!box) return;
+  if (!box || !IS_ADMIN) return;
 
-  box.innerHTML = '<div class="hint">Cargando usuarios...</div>';
+  box.innerHTML = '<div class="hint">Cargando usuarios…</div>';
 
   try {
-    const users = await httpJson(EP.users, {
+    const res = await fetch(`${API_BASE}/users`, {
       headers: adminHeaders()
     });
+    const users = await res.json().catch(() => []);
 
-    LAST_USERS = users;
+    if (!Array.isArray(users) || !users.length) {
+      box.innerHTML = '<div class="hint">No hay usuarios registrados.</div>';
+      return;
+    }
 
     box.innerHTML = `
-      <table class="users-table" style="width: 100%">
+      <table style="width:100%;border-collapse:collapse">
         <thead>
           <tr>
-            <th>Nombre</th>
-            <th>Usuario</th>
-            <th>Rol</th>
-            <th>Activo</th>
-            <th>Acciones</th>
+            <th style="text-align:left;padding:6px 8px">Nombre</th>
+            <th style="text-align:left;padding:6px 8px">Usuario</th>
+            <th style="text-align:left;padding:6px 8px">Rol</th>
+            <th style="text-align:left;padding:6px 8px">Activo</th>
+            <th style="text-align:left;padding:6px 8px"></th>
           </tr>
         </thead>
         <tbody>
           ${users.map(u => `
             <tr>
-              <td>${escapeHtml(u.name || '')}</td>
-              <td>${escapeHtml(u.username || '')}</td>
-              <td>${escapeHtml(u.role || '')}</td>
-              <td>
+              <td style="padding:6px 8px">${escapeHtml(u.name || '-')}</td>
+              <td style="padding:6px 8px">${escapeHtml(u.username || '-')}</td>
+              <td style="padding:6px 8px">${escapeHtml(u.role || '-')}</td>
+              <td style="padding:6px 8px">${u.active ? '✅' : '❌'}</td>
+              <td style="padding:6px 8px">
                 <button class="btn small ghost" data-toggle-user="${u.id}">
                   ${u.active ? 'Desactivar' : 'Activar'}
-                </button>
-              </td>
-              <td>
-                <button class="btn small ghost" data-edit-user="${u.id}">
-                  Editar
-                </button>
-                <button class="btn small danger" data-delete-user="${u.id}">
-                  Eliminar
                 </button>
               </td>
             </tr>
@@ -1078,29 +1071,15 @@ async function loadUsers() {
       </table>
     `;
 
-    // BOTONES: activar/desactivar
     box.querySelectorAll('[data-toggle-user]').forEach(btn => {
       btn.onclick = () => toggleUserActive(btn.dataset.toggleUser);
     });
 
-    // BOTONES: editar usuario
-    box.querySelectorAll('[data-edit-user]').forEach(btn => {
-      btn.onclick = () => editUser(btn.dataset.editUser);
-    });
-
-    // BOTONES: borrar usuario
-    box.querySelectorAll('[data-delete-user]').forEach(btn => {
-      btn.onclick = () => deleteUser(btn.dataset.deleteUser);
-    });
-
   } catch (e) {
-    console.error("loadUsers error:", e);
+    console.error(e);
     box.innerHTML = '<div class="hint">Error al cargar usuarios.</div>';
   }
 }
-
-
-
 
 async function toggleUserActive(id) {
   if (!IS_ADMIN) return;
@@ -1117,96 +1096,6 @@ async function toggleUserActive(id) {
     toast('No se pudo actualizar el usuario');
   }
 }
-async function editUser(id) {
-  if (!IS_ADMIN) return;
-
-  const user = LAST_USERS?.find(u => String(u.id) === String(id));
-  if (!user) {
-    toast('Usuario no encontrado');
-    return;
-  }
-
-  const newName = prompt('Nombre completo:', user.name || '');
-  if (newName === null) return; // canceló
-
-  const newUsername = prompt('Usuario:', user.username || '');
-  if (newUsername === null) return;
-
-  const newRoleInput = prompt("Rol (admin / docente):", user.role || 'docente');
-  if (newRoleInput === null) return;
-  const newRole = (newRoleInput || '').trim().toLowerCase();
-  if (newRole !== 'admin' && newRole !== 'docente') {
-    toast('Rol inválido, usa "admin" o "docente"');
-    return;
-  }
-
-  const changePass = confirm('¿Quieres cambiar la contraseña de este usuario?');
-  let newPassword = null;
-  if (changePass) {
-    newPassword = prompt('Nueva contraseña (mínimo 4 caracteres):', '');
-    if (newPassword === null) return;
-    if (newPassword.length < 4) {
-      toast('La contraseña es muy corta');
-      return;
-    }
-  }
-
-  try {
-    const body = {
-      name: newName.trim(),
-      username: newUsername.trim(),
-      role: newRole   // ya validado
-    };
-    if (newPassword) body.password = newPassword;
-
-    const res = await fetch(`${API_BASE}/users/${id}`, {
-      method: 'PATCH',
-      headers: adminHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(body)
-    });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok || !data.ok) {
-      // aquí puedes mostrar errores específicos, ej: username_duplicado
-      if (data.error === 'username_duplicado') {
-        toast('Ese usuario ya existe, prueba con otro nombre de usuario');
-      } else {
-        toast(data.error || 'No se pudo editar el usuario');
-      }
-      return;
-    }
-
-    toast('Usuario actualizado');
-    loadUsers();
-  } catch (e) {
-    console.error(e);
-    toast('No se pudo editar el usuario');
-  }
-}
-
-async function deleteUser(id) {
-  if (!IS_ADMIN) return;
-  const user = LAST_USERS.find(u => String(u.id) === String(id));
-  const name = user?.name || user?.username || 'este usuario';
-
-  if (!confirm(`¿Seguro que quieres eliminar a ${name}? Esta acción no se puede deshacer.`)) {
-    return;
-  }
-
-  try {
-    await fetch(`${API_BASE}/users/${id}`, {
-      method: 'DELETE',
-      headers: adminHeaders()
-    });
-    toast('Usuario eliminado');
-    loadUsers();
-  } catch (e) {
-    console.error(e);
-    toast('No se pudo eliminar el usuario');
-  }
-}
-
 
 $('#btnReloadUsers')?.addEventListener('click', () => {
   if (IS_ADMIN) loadUsers();
