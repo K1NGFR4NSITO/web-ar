@@ -432,7 +432,7 @@ const FUSION_ID_MAP = {
   // Yoduros
   YODURO_DE_LITIO:'yoduro_de_litio',
   YODURO_DE_SODIO:'yoduro_de_sodio',
-  YODURO_DE_MERCURIO:'yoduro_de_mercurio',
+  YODURO_DE_MERCURIO:'yoduro_de_mercuro',
   YODURO_DE_ALUMINIO:'yoduro_de_aluminio',
 
   // Sulfuros
@@ -465,16 +465,18 @@ const EP={
   resultsAlt2:id=>`${API_BASE}/scores/by_challenge?challenge_id=${id}`
 };
 
-/* ===== Auth para admin (BEARER) ===== */
-const ADMIN_TOKEN_CLIENT = 'changeme'; // <-- igual que ADMIN_TOKEN en Render
-let ADMIN_PIN_VALUE = "";               // solo para desbloquear la UI
+/* ===== Auth admin con JWT ===== */
+let ADMIN_TOKEN = null;
 
 function adminHeaders(extra={}) {
-  return {
+  const headers = {
     'Content-Type':'application/json',
-    'Authorization': `Bearer ${ADMIN_TOKEN_CLIENT}`,
     ...extra
   };
+  if (ADMIN_TOKEN) {
+    headers['Authorization'] = `Bearer ${ADMIN_TOKEN}`;
+  }
+  return headers;
 }
 
 /* ========= Portada ========= */
@@ -535,7 +537,7 @@ function parseUntilVal(v){
 $('#btnAddChallenge')?.addEventListener('click', publishChallenge);
 async function publishChallenge(){
   try{
-    if(!ADMIN_PIN_VALUE){ toast('Debes desbloquear con PIN antes de publicar'); return; }
+    if(!ADMIN_TOKEN){ toast('Debes desbloquear con PIN antes de publicar'); return; }
 
     const title=($('#dName').value||'').trim();
     const points=Math.max(1,Number($('#pts').value||100));
@@ -552,7 +554,7 @@ async function publishChallenge(){
     }
     if(expiresAtMs<=Date.now()){ toast('La expiración debe ser en el futuro'); return; }
 
-    // >>> CLAVE: convertir a minutos para el backend
+    // duración en minutos para el backend
     const duration_minutes = Math.max(1, Math.ceil((expiresAtMs - Date.now())/60000));
 
     const checked=[...$('#comboList').querySelectorAll('input:checked')].map(i=>i.value);
@@ -568,7 +570,7 @@ async function publishChallenge(){
         name:title||'Desafío',
         points_per_combo:points,
         required_count:count,
-        duration_minutes,          // <<< enviado al server
+        duration_minutes,
         fusion_ids
       })
     });
@@ -584,7 +586,6 @@ async function publishChallenge(){
       }catch(e){ console.warn('expire_others:',e); }
     }
 
-    // UI local para ver activo al instante
     const uiId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random());
     challenges.push({id:uiId,comboId:chosenUI[0],points,expiresAt:expiresAtMs,title});
     save(LS_CHALLENGES,challenges);
@@ -601,7 +602,7 @@ async function loadServerChallenges(){
   const box=$('#serverChallengeList');
   box.innerHTML='<div class="hint">Cargando…</div>';
   try{
-    let list=await httpJson(EP.listChallenges).catch(async()=>httpJson(EP.activeChallenges));
+    let list=await httpJson(EP.listChallenges,{ headers: adminHeaders() }).catch(async()=>httpJson(EP.activeChallenges));
     if(!Array.isArray(list)) list=list?[list]:[];
     const now=new Date();
     list=list.filter(c=>!c.expires_at||new Date(c.expires_at)>now);
@@ -814,19 +815,33 @@ const ovl=$('#ovl');
 $('#btnDocentes').onclick=()=>{ ovl.classList.add('show'); $('#pin').value=''; $('#adminBox').classList.add('hidden'); };
 $('#closeOvl').onclick=()=>ovl.classList.remove('show');
 
-const ADMIN_PIN='1234';
-$('#btnUnlock').onclick=()=>{
-  const entered = ($('#pin').value)||'';
-  const ok = (entered === ADMIN_PIN);
-  if(ok){
-    ADMIN_PIN_VALUE = entered;             // solo para UI
+$('#btnUnlock').onclick = async () => {
+  const entered = ($('#pin').value || '').trim();
+  if (!entered) { toast('Ingresa el PIN'); return; }
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: entered }),
+    });
+    if (!res.ok) {
+      ADMIN_TOKEN = null;
+      $('#adminBox').classList.add('hidden');
+      toast('PIN incorrecto');
+      return;
+    }
+    const data = await res.json();
+    if (!data || !data.token) {
+      toast('Respuesta inválida del servidor');
+      return;
+    }
+    ADMIN_TOKEN = data.token;
     $('#adminBox').classList.remove('hidden');
     toast('Modo docente activado');
     loadServerChallenges();
-  }else{
-    ADMIN_PIN_VALUE = "";
-    $('#adminBox').classList.add('hidden');
-    toast('PIN incorrecto');
+  } catch (e) {
+    console.error(e);
+    toast('Error al conectar con el servidor');
   }
 };
 
