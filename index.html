@@ -59,6 +59,27 @@
   .btn.more{background:transparent;border:1px solid var(--line);color:#dce6ff}
   .kv{display:grid;grid-template-columns:140px 1fr;gap:6px;font-size:14px}
   .kv b{color:#cfe0ff}
+    .password-wrap{
+    position:relative;
+    flex:1 1 120px;
+  }
+  .password-wrap input{
+    width:100%;
+    padding-right:32px; /* espacio para el ojito */
+  }
+  .pwd-toggle{
+    position:absolute;
+    right:8px;
+    top:50%;
+    transform:translateY(-50%);
+    border:none;
+    background:transparent;
+    color:var(--muted);
+    cursor:pointer;
+    font-size:16px;
+    padding:0;
+  }
+
 </style>
 </head>
 <body>
@@ -221,7 +242,11 @@
             <div class="row" style="gap:8px;flex-wrap:wrap">
               <input id="newTeacherName" class="input" placeholder="Nombre completo" style="flex:1 1 160px" />
               <input id="newTeacherUser" class="input" placeholder="Usuario" style="flex:1 1 120px" />
-              <input id="newTeacherPass" class="input" placeholder="Contraseña" type="password" style="flex:1 1 120px" />
+<div class="password-wrap">
+  <input id="newTeacherPass" class="input" placeholder="Contraseña" type="password" />
+  <button type="button" id="toggleNewTeacherPass" class="pwd-toggle">👁</button>
+</div>
+
               <button id="btnCreateTeacher" class="btn small">Crear</button>
             </div>
           </div>
@@ -847,18 +872,94 @@ function resultsLocalInit(){ renderResultsIndex(); }
 /* ========= Login admin modal ========= */
 const ovl = $('#ovl');
 
+function updateLoginUI() {
+  const userInput = $('#loginUser');
+  const passInput = $('#loginPass');
+  const who = $('#whoLine');
+  const btn = $('#btnUnlock');
+
+  if (CURRENT_USER) {
+    // Logueado
+    if (userInput) {
+      userInput.value = CURRENT_USER.username || CURRENT_USER.name || '';
+      userInput.disabled = true;
+    }
+    if (passInput) {
+      passInput.value = '';
+      passInput.classList.add('hidden'); // ocultamos el recuadro de contraseña
+    }
+    if (btn) btn.textContent = 'Cerrar sesión';
+
+    if (who) {
+      const labelRole = IS_ADMIN ? 'administrador' : (CURRENT_USER.role || 'docente');
+      who.textContent = `Sesión iniciada como ${CURRENT_USER.name || CURRENT_USER.username} (${labelRole})`;
+      who.classList.remove('hidden');
+    }
+
+    $('#adminBox').classList.remove('hidden');
+    if (IS_ADMIN) {
+      $('#usersSection')?.classList.remove('hidden');
+    } else {
+      $('#usersSection')?.classList.add('hidden');
+    }
+
+  } else {
+    // No logueado
+    if (userInput) {
+      userInput.value = '';
+      userInput.disabled = false;
+    }
+    if (passInput) {
+      passInput.value = '';
+      passInput.classList.remove('hidden');
+    }
+    if (btn) btn.textContent = 'Iniciar sesión';
+
+    if (who) {
+      who.textContent = '';
+      who.classList.add('hidden');
+    }
+
+    $('#adminBox').classList.add('hidden');
+    $('#usersSection')?.classList.add('hidden');
+  }
+}
+
+
 $('#btnDocentes').onclick = () => {
   ovl.classList.add('show');
+
+  // 🧹 Limpiar campos
   $('#loginUser').value = '';
   $('#loginPass').value = '';
+
+  // 👁 Resetear visibilidad del password
+  $('#loginPass').type = 'password';
+  $('#toggleLoginPass').textContent = '👁';
+
+  // 🔒 Ocultar paneles internos
   $('#adminBox').classList.add('hidden');
   $('#usersSection')?.classList.add('hidden');
   $('#whoLine')?.classList.add('hidden');
+
+  // 🔄 Mostrar UI según si hay login o no
+  updateLoginUI();
 };
 
 $('#closeOvl').onclick = () => ovl.classList.remove('show');
 
+
 $('#btnUnlock').onclick = async () => {
+  // Si ya hay usuario -> CERRAR SESIÓN
+  if (CURRENT_USER) {
+    CURRENT_USER = null;
+    IS_ADMIN = false;
+    toast('Sesión cerrada');
+    updateLoginUI();
+    return;
+  }
+
+  // Si no hay usuario -> INICIAR SESIÓN
   const username = ($('#loginUser').value || '').trim();
   const password = ($('#loginPass').value || '').trim();
 
@@ -880,35 +981,23 @@ $('#btnUnlock').onclick = async () => {
       toast(data?.error || 'No se pudo iniciar sesión');
       CURRENT_USER = null;
       IS_ADMIN = false;
-      $('#adminBox').classList.add('hidden');
-      $('#usersSection')?.classList.add('hidden');
+      updateLoginUI();
       return;
     }
 
     CURRENT_USER = data.user;
     IS_ADMIN = !!data.is_admin;
 
-    $('#adminBox').classList.remove('hidden');
-
-    const who = $('#whoLine');
-    if (who) {
-      const labelRole = IS_ADMIN ? 'administrador' : (CURRENT_USER.role || 'docente');
-      who.textContent = `Sesión iniciada como ${CURRENT_USER.name || CURRENT_USER.username} (${labelRole})`;
-      who.classList.remove('hidden');
-    }
-
-    // Si es admin, mostrar sección de docentes y cargar lista
     if (IS_ADMIN) {
-      $('#usersSection')?.classList.remove('hidden');
       loadUsers();
       toast('Modo administrador activado');
     } else {
-      $('#usersSection')?.classList.add('hidden');
       toast('Modo docente activado');
     }
 
-    // Ya logueado: cargamos desafíos desde el servidor
+    // Cargamos desafíos desde el servidor estando logueado
     loadServerChallenges();
+    updateLoginUI();
 
   } catch (e) {
     console.error(e);
@@ -917,11 +1006,23 @@ $('#btnUnlock').onclick = async () => {
 };
 
 
+
 /* Mostrar/ocultar fecha custom */
 $('#dur')?.addEventListener('change', ()=>{
   const show = $('#dur').value === 'custom';
   $('#customUntil').classList.toggle('hidden', !show);
 });
+
+
+// Ojito para ver/ocultar contraseña al crear docente
+$('#toggleNewTeacherPass')?.addEventListener('click', () => {
+  const input = $('#newTeacherPass');
+  if (!input) return;
+  const isPwd = input.type === 'password';
+  input.type = isPwd ? 'text' : 'password';
+  $('#toggleNewTeacherPass').textContent = isPwd ? '🙈' : '👁';
+});
+
 /* ========= Gestión de usuarios (solo admin) ========= */
 
 async function loadUsers() {
@@ -1031,6 +1132,10 @@ $('#btnCreateTeacher')?.addEventListener('click', async () => {
     $('#newTeacherName').value = '';
     $('#newTeacherUser').value = '';
     $('#newTeacherPass').value = '';
+
+    $('#newTeacherPass').type = 'password';
+    $('#toggleNewTeacherPass').textContent = '👁';
+
 
     toast('Docente creado correctamente');
     loadUsers();
